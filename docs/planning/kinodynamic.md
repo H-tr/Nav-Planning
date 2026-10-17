@@ -111,7 +111,9 @@ result = planner.plan_kinodynamic(q_now, new_goal, start_velocity=qd_now)
 ```
 
 Trajectories are collision-free at zero clearance, up to the sampling
-resolution, like every VAMP edge.
+resolution, like every VAMP edge: re-checked every 2 ms, 1–3 % of the
+demo-scene trajectories (50 seeds per leg and subgroup) touch an
+obstacle point between two collision samples.
 
 ## Configuration
 

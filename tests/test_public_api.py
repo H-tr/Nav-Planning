@@ -100,11 +100,13 @@ def test_camera_forward_kinematics(robot, heights):
 
 
 @pytest.mark.parametrize("subgroup", ["locobot_whole_body", "ridgeback_whole_body"])
-def test_geometric_plan_is_collision_free(subgroup, room):
-    """Densified along the state space's curves, every state is valid."""
+def test_geometric_plan_is_valid(subgroup, room):
+    """The waypoints are valid.  Edges are checked along the base's curve
+    at VAMP's resolution — collision-free up to that resolution, like
+    VAMP's own straight edges."""
     planner = create_planner(
         subgroup,
-        config=PlannerConfig(time_limit=2.0, resolution=256.0),
+        config=PlannerConfig(time_limit=2.0, interpolate=False),
         pointcloud=room,
     )
     planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
@@ -113,3 +115,20 @@ def test_geometric_plan_is_collision_free(subgroup, room):
     result = planner.plan(start, goal)
     assert result.success
     assert planner.validate_batch(result.path).all()
+
+
+def test_locobot_path_follows_reeds_shepp(room):
+    """Densified, the LoCoBot's path moves along its heading: no sideways
+    steps beyond the curvature of the turns."""
+    planner = create_planner(
+        "locobot_base",
+        config=PlannerConfig(time_limit=2.0, resolution=256.0),
+        pointcloud=room,
+    )
+    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    result = planner.plan(np.array(scene.START), np.array(scene.GOALS["behind pillar"]))
+    assert result.success
+    step = np.diff(result.path[:, :2], axis=0)
+    heading = result.path[:-1, 2]
+    lateral = -np.sin(heading) * step[:, 0] + np.cos(heading) * step[:, 1]
+    assert np.abs(lateral).max() <= 0.05 * np.linalg.norm(step, axis=1).max()

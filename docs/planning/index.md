@@ -64,8 +64,12 @@ RealVectorStateSpace for the camera joints:
   straight in x and y with the shortest-arc heading.
 
 The motion validator samples each edge along that curve at VAMP's
-resolution, so path simplification and interpolation, which use the same
-curves, stay collision-free.
+resolution (32 samples per unit of configuration-space length), so path
+simplification and interpolation, which use the same curves, stay
+collision-free up to that resolution — like VAMP's own straight edges.
+On the demo scene, re-checking densified paths 8× finer finds an
+obstacle point inside a sphere on 9–12 % of the Ridgeback's paths and
+0–1 % of the LoCoBot's.
 
 ## Supported planners
 
