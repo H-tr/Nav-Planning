@@ -292,11 +292,24 @@ class Planner final : public OmplVampPlanner {
                         const std::vector<double>& goal, double time_limit,
                         const KinodynamicSettings& settings)
       -> KinodynamicResult override {
+    check_dim(static_cast<Eigen::Index>(start.size()),
+              "plan_kinodynamic: start");
+    check_dim(static_cast<Eigen::Index>(goal.size()), "plan_kinodynamic: goal");
+    if (!start_velocity.empty())
+      check_dim(static_cast<Eigen::Index>(start_velocity.size()),
+                "plan_kinodynamic: start_velocity");
+    const int base_dim = sub_.layout == Layout::kJoints ? 0 : 3;
+    if (static_cast<int>(settings.max_velocity.size()) != dim() - base_dim ||
+        static_cast<int>(settings.max_acceleration.size()) != dim() - base_dim)
+      throw std::invalid_argument(
+          "plan_kinodynamic: settings need a velocity and an acceleration "
+          "limit for each of the " +
+          std::to_string(dim() - base_dim) + " non-base joints.");
     const auto lo = lower_bounds(), hi = upper_bounds();
-    FlaskPlanner<Spec> flask(
-        env_, sub_.active, sub_.frozen, sub_.layout == Layout::kJoints ? 0 : 3,
-        std::vector<double>(lo.data(), lo.data() + dim()),
-        std::vector<double>(hi.data(), hi.data() + dim()), settings);
+    FlaskPlanner<Spec> flask(env_, sub_.active, sub_.frozen, base_dim,
+                             std::vector<double>(lo.data(), lo.data() + dim()),
+                             std::vector<double>(hi.data(), hi.data() + dim()),
+                             settings);
     return flask.plan(start, start_velocity, goal, time_limit);
   }
 
@@ -403,6 +416,14 @@ class Planner final : public OmplVampPlanner {
   /// ``frozen_config`` (full body).  The environment is kept.
   void set_subgroup(std::vector<int> active_indices,
                     std::vector<double> frozen_config) override {
+    if (frozen_config.size() != Robot::dimension ||
+        std::any_of(active_indices.begin(), active_indices.end(), [](int i) {
+          return i < 0 || i >= static_cast<int>(Robot::dimension);
+        }))
+      throw std::invalid_argument(
+          "set_subgroup: frozen_config needs " +
+          std::to_string(Robot::dimension) +
+          " entries and active_indices must index them.");
     const auto base =
         std::count_if(active_indices.begin(), active_indices.end(),
                       [](int i) { return i < 3; });

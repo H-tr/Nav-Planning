@@ -141,18 +141,18 @@ interpolate=False`), single-threaded on an AMD EPYC 7543:
 
 | Subgroup | Leg | FLASK success | FLASK median / p95 | Duration | RRT-Connect success | RRT-Connect median / p95 |
 |---|---|---|---|---|---|---|
-| locobot_base | room 2 | 20/20 | 0.4 / 0.4 ms | 22.5 s | 20/20 | 1.7 / 4.1 ms |
-| locobot_base | behind pillar | 20/20 | 51.6 / 102.9 ms | 17.3 s | 20/20 | 2.2 / 4.5 ms |
-| locobot_base | table | 20/20 | 12.8 / 67.7 ms | 8.2 s | 20/20 | 0.8 / 1.4 ms |
-| locobot_whole_body | room 2 | 20/20 | 0.4 / 0.4 ms | 22.5 s | 20/20 | 2.5 / 6.5 ms |
-| locobot_whole_body | behind pillar | 20/20 | 52.0 / 102.0 ms | 16.6 s | 20/20 | 3.7 / 13.1 ms |
-| locobot_whole_body | table | 20/20 | 11.1 / 57.7 ms | 6.6 s | 20/20 | 1.0 / 1.8 ms |
-| ridgeback_base | room 2 | 20/20 | 0.6 / 0.6 ms | 8.2 s | 20/20 | 4.7 / 24.1 ms |
-| ridgeback_base | behind pillar | 20/20 | 30.5 / 102.4 ms | 8.5 s | 20/20 | 5.0 / 23.9 ms |
-| ridgeback_base | table | 20/20 | 0.1 / 0.2 ms | 3.2 s | 20/20 | 0.5 / 1.7 ms |
-| ridgeback_whole_body | room 2 | 20/20 | 0.6 / 0.6 ms | 8.6 s | 20/20 | 12.5 / 60.1 ms |
-| ridgeback_whole_body | behind pillar | 20/20 | 33.6 / 108.0 ms | 9.4 s | 20/20 | 7.2 / 31.8 ms |
-| ridgeback_whole_body | table | 20/20 | 0.2 / 0.2 ms | 3.4 s | 20/20 | 0.7 / 2.1 ms |
+| locobot_base | room 2 | 20/20 | 0.3 / 0.4 ms | 22.5 s | 20/20 | 1.7 / 2.9 ms |
+| locobot_base | behind pillar | 20/20 | 51.3 / 102.0 ms | 17.3 s | 20/20 | 2.5 / 6.7 ms |
+| locobot_base | table | 20/20 | 12.5 / 67.7 ms | 8.2 s | 20/20 | 0.8 / 1.4 ms |
+| locobot_whole_body | room 2 | 20/20 | 0.3 / 0.4 ms | 22.5 s | 20/20 | 2.1 / 13.2 ms |
+| locobot_whole_body | behind pillar | 20/20 | 51.8 / 100.9 ms | 16.6 s | 20/20 | 3.8 / 34.7 ms |
+| locobot_whole_body | table | 20/20 | 11.0 / 57.3 ms | 6.6 s | 20/20 | 1.0 / 1.9 ms |
+| ridgeback_base | room 2 | 20/20 | 0.5 / 0.6 ms | 8.2 s | 20/20 | 4.9 / 21.6 ms |
+| ridgeback_base | behind pillar | 20/20 | 30.2 / 101.7 ms | 8.5 s | 20/20 | 6.0 / 29.9 ms |
+| ridgeback_base | table | 20/20 | 0.1 / 0.2 ms | 3.2 s | 20/20 | 0.4 / 1.0 ms |
+| ridgeback_whole_body | room 2 | 20/20 | 0.6 / 0.6 ms | 8.6 s | 20/20 | 12.1 / 37.7 ms |
+| ridgeback_whole_body | behind pillar | 20/20 | 33.2 / 107.2 ms | 9.4 s | 20/20 | 9.2 / 60.4 ms |
+| ridgeback_whole_body | table | 20/20 | 0.2 / 0.2 ms | 3.4 s | 20/20 | 0.6 / 1.9 ms |
 
 Sampled every 2 ms, the largest velocity or acceleration of any of the
 240 FLASK trajectories was 1.000 × its limit (base speed and yaw rate),

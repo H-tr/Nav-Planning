@@ -227,8 +227,7 @@ __marimo__/
 *.hh
 # Exception: the VAMP robot FK headers are generated once and
 # shipped with the repo so downstream builds don't require running
-# the full cricket pipeline.  It is the single `.hh` we intentionally
-# track.
+# the full cricket pipeline.  They are the only `.hh` files we track.
 !ext/ompl_vamp/include/vamp/robots/*.hh
 
 # Generated build artifacts
