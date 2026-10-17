@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!--
+  Nav-Planning addition to the Clearpath Ridgeback: a pan-tilt camera
+  mast.  The Ridgeback has no head, so this file adds one through the
+  description's own payload hook (RIDGEBACK_URDF_EXTRAS):
+
+    * a 40 x 40 mm aluminium extrusion, 0.70 m tall, standing on the
+      centre of the payload deck (the description's `mid_mount` frame);
+    * a FLIR PTU-5 pan-tilt unit on top of the mast (official
+      flir_ptu_description, model `ptu5`);
+    * an Intel RealSense D435 on the PTU's payload mount (official
+      realsense2_description).
+
+  The PTU base sits 0.70 m above the deck, 1.006 m above the floor.
+-->
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:property name="mast_height" value="0.70" />
+  <xacro:property name="mast_width" value="0.04" />
+
+  <xacro:include filename="$(find flir_ptu_description)/urdf/flir_ptu.urdf.xacro" />
+  <xacro:include filename="$(find realsense2_description)/urdf/_d435.urdf.xacro" />
+
+  <link name="mast_link">
+    <visual>
+      <origin xyz="0 0 ${mast_height / 2}" rpy="0 0 0" />
+      <geometry>
+        <box size="${mast_width} ${mast_width} ${mast_height}" />
+      </geometry>
+      <material name="light_grey" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${mast_height / 2}" rpy="0 0 0" />
+      <geometry>
+        <box size="${mast_width} ${mast_width} ${mast_height}" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="mast_joint" type="fixed">
+    <parent link="mid_mount" />
+    <child link="mast_link" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+  <xacro:flir_ptu name="ptu" model="ptu5" />
+
+  <joint name="ptu_base_joint" type="fixed">
+    <parent link="mast_link" />
+    <child link="ptu_base_link" />
+    <origin xyz="0 0 ${mast_height}" rpy="0 0 0" />
+  </joint>
+
+  <xacro:sensor_d435 parent="ptu_mount_link" name="camera" use_nominal_extrinsics="true">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:sensor_d435>
+</robot>

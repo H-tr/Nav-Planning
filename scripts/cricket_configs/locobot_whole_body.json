@@ -1,0 +1,10 @@
+{
+    "name": "LocobotWholeBody",
+    "urdf": "locobot/locobot_spherized.urdf",
+    "srdf": "locobot/locobot.srdf",
+    "end_effector": "camera_locobot_link",
+    "resolution": 32,
+    "template": "templates/fk_template.hh",
+    "subtemplates": [{"name": "ccfk", "template": "templates/ccfk_template.hh"}],
+    "output": "locobot_whole_body_fk.hh"
+}

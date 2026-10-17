@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!-- The base model is one rigid body: no self-collision pairs -->
+<robot name="locobot_base" />

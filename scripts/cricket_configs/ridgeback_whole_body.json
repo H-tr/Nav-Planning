@@ -1,0 +1,10 @@
+{
+    "name": "RidgebackWholeBody",
+    "urdf": "ridgeback/ridgeback_spherized.urdf",
+    "srdf": "ridgeback/ridgeback.srdf",
+    "end_effector": "camera_link",
+    "resolution": 32,
+    "template": "templates/fk_template.hh",
+    "subtemplates": [{"name": "ccfk", "template": "templates/ccfk_template.hh"}],
+    "output": "ridgeback_whole_body_fk.hh"
+}

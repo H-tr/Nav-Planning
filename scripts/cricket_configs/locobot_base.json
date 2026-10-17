@@ -1,0 +1,10 @@
+{
+    "name": "LocobotBase",
+    "urdf": "locobot/locobot_base.urdf",
+    "srdf": "locobot/locobot_base.srdf",
+    "end_effector": "locobot/base_link",
+    "resolution": 32,
+    "template": "templates/fk_template.hh",
+    "subtemplates": [{"name": "ccfk", "template": "templates/ccfk_template.hh"}],
+    "output": "locobot_base_fk.hh"
+}
