@@ -549,6 +549,10 @@ class Planner final : public OmplVampPlanner {
     compound->addSubspace(make_base_space(), 1.0);
     compound->addSubspace(joints, 1.0);
     compound->lock();
+    // Planners that grid a projection (KPIECE, PDST, STRIDE, SBL) use the
+    // base position.
+    compound->registerDefaultProjection(
+        std::make_shared<ob::SubspaceProjectionEvaluator>(compound.get(), 0));
     space_ = compound;
   }
 

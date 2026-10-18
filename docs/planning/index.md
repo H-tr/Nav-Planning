@@ -7,7 +7,7 @@
     ---
 
     All of [OMPL](https://ompl.kavrakilab.org/)'s mature sampling-based
-    planners (31 geometric), driven by one uniform Python call.  No
+    planners (30 geometric), driven by one uniform Python call.  No
     glue code to swap planners — change a string.
 
 -   __VAMP backend__
@@ -97,7 +97,19 @@ accepts any of:
     | FMT | `fmt`, `bfmt` |
     | PRM\* | `prmstar`, `lazyprmstar` |
 
-Every planner returns on the first exact solution.
+Every planner returns on the first exact solution.  With the base and
+the camera joints, the planners that grid a projection (KPIECE,
+BKPIECE, LBKPIECE, SBL, STRIDE, PDST) use the base position.
+
+Known OMPL behaviour:
+
+- The informed planners (`informed_rrtstar`, `bitstar`, `abitstar`,
+  `aitstar`, `eitstar`, `blitstar`) need a single state space, so OMPL
+  rejects them for the whole-body subgroups (SE(2) × R²).
+- BLIT\* can throw "Asked to remove vertex from reverse children that is
+  currently not a child", most often on the Ridgeback's base subgroup.
+- `fmt` finds no path for the LoCoBot (Reeds-Shepp base), nor `bfmt` for
+  its whole body.
 
 ## Minimal example
 

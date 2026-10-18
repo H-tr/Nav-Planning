@@ -4,6 +4,7 @@ import pytest
 from nav_planning._ompl_vamp import OmplVampPlanner
 from nav_planning.planning import available_robots, create_planner
 from nav_planning.types import PlannerConfig, PlanningStatus
+from nav_planning.types.planning import GEOMETRIC_PLANNERS
 
 SUBGROUPS = {
     "locobot": 5,
@@ -111,3 +112,43 @@ def test_strrtstar_is_not_offered():
         OmplVampPlanner("locobot").plan(
             np.zeros(5), np.full(5, 0.1), planner_name="strrtstar"
         )
+
+
+# Known OMPL behaviour (docs/planning/index.md, "Supported planners").
+INFORMED = ("informed_rrtstar", "bitstar", "abitstar", "aitstar", "eitstar", "blitstar")
+
+
+def known_failure(subgroup, planner_name):
+    if planner_name in INFORMED and subgroup.endswith("whole_body"):
+        return pytest.mark.xfail(
+            raises=RuntimeError, reason="OMPL's informed samplers reject SE(2) x R^N"
+        )
+    if planner_name == "blitstar":
+        return pytest.mark.xfail(raises=RuntimeError, reason="OMPL BLIT* bug")
+    if (planner_name, subgroup) in {
+        ("fmt", "locobot_base"),
+        ("fmt", "locobot_whole_body"),
+        ("bfmt", "locobot_whole_body"),
+    }:
+        return pytest.mark.xfail(reason="OMPL's FMT* finds no LoCoBot path")
+    return ()
+
+
+@pytest.mark.parametrize(
+    "subgroup,planner_name",
+    [
+        pytest.param(subgroup, name, marks=known_failure(subgroup, name))
+        for subgroup in SUBGROUPS
+        if subgroup.endswith(("_base", "_whole_body"))
+        for name in GEOMETRIC_PLANNERS
+    ],
+)
+def test_every_planner_plans(subgroup, planner_name):
+    planner = create_planner(
+        subgroup, config=PlannerConfig(planner_name=planner_name, time_limit=0.5)
+    )
+    planner.set_joint_limits({"base_x_joint": (-2.0, 2.0), "base_y_joint": (-2.0, 2.0)})
+    start = np.zeros(planner.num_dof)
+    goal = start.copy()
+    goal[:3] = [1.0, 0.5, 0.3]
+    assert planner.plan(start, goal).success
