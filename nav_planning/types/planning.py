@@ -19,7 +19,6 @@ GEOMETRIC_PLANNERS = (
     "informed_rrtstar",
     "rrtsharp",
     "rrtxstatic",
-    "strrtstar",
     "lbtrrt",
     "trrt",
     "bitrrt",

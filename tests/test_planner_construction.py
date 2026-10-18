@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from nav_planning._ompl_vamp import OmplVampPlanner
 from nav_planning.planning import available_robots, create_planner
 from nav_planning.types import PlannerConfig, PlanningStatus
 
@@ -99,3 +100,14 @@ def test_sample_valid_is_within_bounds():
     q = planner.sample_valid()
     lower, upper = planner.bounds
     assert np.all(q >= lower) and np.all(q <= upper) and planner.validate(q)
+
+
+def test_strrtstar_is_not_offered():
+    """OMPL's STRRT* needs a space-time state space, which no planner
+    space here is."""
+    with pytest.raises(ValueError):
+        PlannerConfig(planner_name="strrtstar")
+    with pytest.raises(ValueError):
+        OmplVampPlanner("locobot").plan(
+            np.zeros(5), np.full(5, 0.1), planner_name="strrtstar"
+        )
