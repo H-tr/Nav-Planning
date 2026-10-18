@@ -17,11 +17,7 @@
  *     joints;
  *   * without it — a RealVectorStateSpace.
  *
- * Every OMPL geometric planner runs on that space through SimpleSetup.
- * Subgroups with the base can also use OMPL's multilevel planners
- * (``qrrt``, ``qrrtstar``, ``qmp``, ``qmpstar``) with the hierarchy
- * SE(2) -> SE(2) x R^N, whose base level checks only the links that do
- * not move with the camera.
+ * Every OMPL geometric planner runs on that space.
  *
  * Joint limits are kept for the full body and bound every active state
  * space, so they survive ``set_subgroup``.  ``base_theta_joint`` is
@@ -40,12 +36,6 @@
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/PathSimplifier.h>
 #include <ompl/geometric/SimpleSetup.h>
-// OMPL — multilevel (fiber bundle) planners
-#include <ompl/multilevel/datastructures/projections/XRN_X_SE2.h>
-#include <ompl/multilevel/planners/qmp/QMP.h>
-#include <ompl/multilevel/planners/qmp/QMPStar.h>
-#include <ompl/multilevel/planners/qrrt/QRRT.h>
-#include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 // OMPL — informed trees
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
 #include <ompl/geometric/planners/informedtrees/AITstar.h>
@@ -107,7 +97,6 @@
 namespace nav_planning {
 
 namespace og = ompl::geometric;
-namespace om = ompl::multilevel;
 
 /// (N, dof) waypoints and (N, 3) points, row-major so numpy arrays map
 /// onto them without per-element conversion.
@@ -225,22 +214,9 @@ class Planner final : public OmplVampPlanner {
       -> PlanResult override {
     check_dim(start.size(), "plan: start");
     check_dim(goal.size(), "plan: goal");
-    const bool multilevel = planner_name == "qrrt" ||
-                            planner_name == "qrrtstar" ||
-                            planner_name == "qmp" || planner_name == "qmpstar";
-    if (multilevel && sub_.layout == Layout::kJoints)
-      throw std::invalid_argument("plan: multilevel planner '" + planner_name +
-                                  "' needs the base in the subgroup.");
 
-    ob::SpaceInformationPtr si = make_space_information();
-    ob::PlannerPtr planner;
-    if (multilevel) {
-      auto [levels, projections] = multilevel_levels();
-      si = levels.back();
-      planner = create_multilevel_planner(levels, projections, planner_name);
-    } else {
-      planner = create_geometric_planner(si, planner_name);
-    }
+    const ob::SpaceInformationPtr si = make_space_information();
+    const ob::PlannerPtr planner = create_geometric_planner(si, planner_name);
     auto pdef = std::make_shared<ob::ProblemDefinition>(si);
     ob::ScopedState<> ompl_start(si->getStateSpace());
     ob::ScopedState<> ompl_goal(si->getStateSpace());
@@ -250,8 +226,7 @@ class Planner final : public OmplVampPlanner {
     planner->setProblemDefinition(pdef);
     planner->setup();
 
-    // Return on the first exact solution: the multilevel planners only
-    // stop early on their lower levels.
+    // Return on the first exact solution, the optimizing planners too.
     auto ptc = ob::plannerOrTerminationCondition(
         ob::timedPlannerTerminationCondition(time_limit),
         ob::exactSolnPlannerTerminationCondition(pdef));
@@ -583,24 +558,6 @@ class Planner final : public OmplVampPlanner {
     return si;
   }
 
-  /// SE(2) -> SE(2) x R^N for subgroups with camera joints; the base
-  /// alone is a single level.
-  auto multilevel_levels() const
-      -> std::pair<std::vector<ob::SpaceInformationPtr>,
-                   std::vector<om::ProjectionPtr>> {
-    if (sub_.layout == Layout::kBase) return {{make_space_information()}, {}};
-    auto base = make_base_space();
-    auto base_si = std::make_shared<ob::SpaceInformation>(base);
-    base_si->setStateValidityChecker(
-        std::make_shared<BaseOnlyValidityChecker<Spec>>(base_si, env_));
-    base_si->setup();
-    // OMPL's factory only recognises a plain SE2 type tag; its SE2 x R^N
-    // projection only needs the SE2 state layout, which Reeds-Shepp shares.
-    auto projection = std::make_shared<om::Projection_SE2RN_SE2>(space_, base);
-    projection->makeFiberSpace();
-    return {{base_si, make_space_information()}, {projection}};
-  }
-
   void densify(og::PathGeometric& path, int count, double resolution) const {
     if (count > 0 && resolution > 0.0)
       throw std::invalid_argument(
@@ -648,23 +605,6 @@ class Planner final : public OmplVampPlanner {
       read_state(path.getState(i), sub_.layout,
                  out.row(static_cast<Eigen::Index>(i)).data(), dim());
     return out;
-  }
-
-  static auto create_multilevel_planner(
-      std::vector<ob::SpaceInformationPtr>& levels,
-      std::vector<om::ProjectionPtr>& projections, const std::string& name)
-      -> ob::PlannerPtr {
-    if (projections.empty()) {  // the base alone: a single level
-      if (name == "qrrt") return std::make_shared<om::QRRT>(levels);
-      if (name == "qrrtstar") return std::make_shared<om::QRRTStar>(levels);
-      if (name == "qmp") return std::make_shared<om::QMP>(levels);
-      return std::make_shared<om::QMPStar>(levels);
-    }
-    if (name == "qrrt") return std::make_shared<om::QRRT>(levels, projections);
-    if (name == "qrrtstar")
-      return std::make_shared<om::QRRTStar>(levels, projections);
-    if (name == "qmp") return std::make_shared<om::QMP>(levels, projections);
-    return std::make_shared<om::QMPStar>(levels, projections);
   }
 
   static auto create_geometric_planner(const ob::SpaceInformationPtr& si,

@@ -7,8 +7,8 @@
     ---
 
     All of [OMPL](https://ompl.kavrakilab.org/)'s mature sampling-based
-    planners (31 geometric, 4 multilevel), driven by one uniform Python
-    call.  No glue code to swap planners — change a string.
+    planners (31 geometric), driven by one uniform Python call.  No
+    glue code to swap planners — change a string.
 
 -   __VAMP backend__
 
@@ -86,7 +86,6 @@ accepts any of:
     | PRM | `prm`, `lazyprm`, `spars`, `spars2` |
     | Exploration | `est`, `biest`, `sbl`, `stride`, `pdst` |
     | RRT\*-feasible | `rrtsharp`, `rrtxstatic` |
-    | Multilevel | `qrrt`, `qmp` |
 
 === "Asymptotically optimal (keep refining until budget)"
 
@@ -96,12 +95,8 @@ accepts any of:
     | Informed trees | `bitstar`, `abitstar`, `aitstar`, `eitstar`, `blitstar` |
     | FMT | `fmt`, `bfmt` |
     | PRM\* | `prmstar`, `lazyprmstar` |
-    | Multilevel | `qrrtstar`, `qmpstar` |
 
-Every planner returns on the first exact solution.  The multilevel
-planners (OMPL fiber bundles) plan the base first, in SE(2) against the
-links that do not move with the camera, then lift the path into the
-whole body.
+Every planner returns on the first exact solution.
 
 ## Minimal example
 

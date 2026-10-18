@@ -14,9 +14,7 @@ expanded to the full configuration before every collision check.
 Subgroups with the base plan the base in SE(2): a Reeds-Shepp space for
 the LoCoBot's differential drive (forward, reverse and turns no tighter
 than its turning radius), a plain SE(2) space for the holonomic
-Ridgeback.  Every OMPL geometric planner runs on that space; the
-multilevel planners (``qrrt``, ``qrrtstar``, ``qmp``, ``qmpstar``) plan
-the base first.
+Ridgeback.  Every OMPL geometric planner runs on that space.
 
 :meth:`MotionPlanner.plan_kinodynamic` is the kinodynamic alternative:
 FLASK (flatness-based kinodynamic RRT-Connect) returns a

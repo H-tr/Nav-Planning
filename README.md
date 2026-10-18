@@ -60,9 +60,8 @@ navigation robots that look around with a camera:
 │   Reeds-Shepp SE(2) (+ R^2)      SE(2) (+ R^2)                │
 │   FLASK: unicycle flat outputs   FLASK: x, y, θ flat outputs  │
 │                                                               │
-│   OMPL planners (RRT-Connect, BIT*, KPIECE, PRM, …,           │
-│   multilevel QRRT / QMP); validity + motion checks along      │
-│   the base curves                                             │
+│   OMPL planners (RRT-Connect, BIT*, KPIECE, PRM, …);          │
+│   validity + motion checks along the base curves              │
 └────────┼──────────────────────────────────────────────────────┘
          │
 ┌────────▼──────────────────────────────────────────────────────┐

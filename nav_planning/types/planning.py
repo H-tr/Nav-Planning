@@ -49,8 +49,6 @@ GEOMETRIC_PLANNERS = (
     "stride",
     "pdst",
 )
-# OMPL multilevel planners (SE(2) -> SE(2) x R^N); subgroups with the base.
-MULTILEVEL_PLANNERS = ("qrrt", "qrrtstar", "qmp", "qmpstar")
 
 
 class PlanningStatus(Enum):
@@ -84,10 +82,10 @@ class PlannerConfig:
     resolution: float = 64.0
 
     def __post_init__(self):
-        if self.planner_name not in GEOMETRIC_PLANNERS + MULTILEVEL_PLANNERS:
+        if self.planner_name not in GEOMETRIC_PLANNERS:
             raise ValueError(
                 f"Unknown planner '{self.planner_name}'. Supported: "
-                f"{', '.join(GEOMETRIC_PLANNERS + MULTILEVEL_PLANNERS)}"
+                f"{', '.join(GEOMETRIC_PLANNERS)}"
             )
         if self.time_limit <= 0:
             raise ValueError("time_limit must be > 0")
