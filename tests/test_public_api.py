@@ -82,6 +82,35 @@ def test_partial_base_subgroup_raises():
         planner.set_subgroup([0, 1, 3], [0.0] * 5)
 
 
+# A point the camera hits at pan 0, tilt 0 but clears when tilted.
+CAMERA_OBSTACLE = {"locobot": (0.09, 0.0, 0.522), "ridgeback": (0.02, 0.0, 1.2)}
+
+
+@pytest.mark.parametrize("robot", ROBOTS)
+@pytest.mark.parametrize(
+    "planner_name", ["kpiece", "bkpiece", "lbkpiece", "pdst", "stride"]
+)
+def test_camera_subgroup_grows_from_blocked_motions(robot, planner_name):
+    """Planners that grow from the valid part of a blocked motion, on a
+    subgroup without the base: the camera pans past a point by tilting."""
+    planner = OmplVampPlanner(robot.ROBOT_NAME, [3, 4], robot.HOME_JOINTS.tolist())
+    planner.add_pointcloud(
+        np.array([CAMERA_OBSTACLE[robot.ROBOT_NAME]], np.float32), 0.0
+    )
+    assert not planner.validate(np.zeros(2))
+    start, goal = np.array([-1.5, 0.0]), np.array([1.5, 0.0])
+    result = planner.plan(
+        start,
+        goal,
+        planner_name=planner_name,
+        time_limit=1.0,
+        simplify=False,
+        interpolate=False,
+    )
+    assert result.solved
+    assert planner.validate_batch(planner.interpolate_path(result.path, 0, 64.0)).all()
+
+
 @pytest.mark.parametrize(
     "robot,heights",
     [(locobot, (0.4, 0.6)), (ridgeback, (1.1, 1.3))],

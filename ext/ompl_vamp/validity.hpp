@@ -232,16 +232,30 @@ class SubgroupMotionValidator : public ob::MotionValidator {
       -> bool override {
     if (checkMotion(s1, s2)) return true;
     const auto& space = si_->getStateSpace();
-    Motion motion(*this, s1, s2);
     auto* s = space->allocState();
-    int k = 1;
-    for (; k <= motion.n; ++k) {
-      write_state(s, sub_.layout, motion.at(static_cast<double>(k) / motion.n),
-                  motion.dim);
-      if (!si_->isValid(s)) break;
+    // Fraction of the last valid sample t = k / n, k = 1..n.
+    const auto walk = [&](int n, auto&& write) {
+      int k = 1;
+      for (; k <= n; ++k) {
+        write(static_cast<double>(k) / n);
+        if (!si_->isValid(s)) break;
+      }
+      return static_cast<double>(k - 1) / n;
+    };
+    if (sub_.layout == Layout::kJoints) {
+      // validate_motion's samples: whole SIMD blocks on the straight line.
+      const double blocks =
+          std::ceil(space->distance(s1, s2) / kRake * Robot::resolution);
+      last_valid.second =
+          walk(static_cast<int>(kRake * std::max(blocks, 1.0)),
+               [&](double t) { space->interpolate(s1, s2, t, s); });
+    } else {
+      Motion motion(*this, s1, s2);
+      last_valid.second = walk(motion.n, [&](double t) {
+        write_state(s, sub_.layout, motion.at(t), motion.dim);
+      });
     }
     space->freeState(s);
-    last_valid.second = static_cast<double>(k - 1) / motion.n;
     if (last_valid.first)
       space->interpolate(s1, s2, last_valid.second, last_valid.first);
     return false;
