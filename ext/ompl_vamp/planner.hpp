@@ -437,7 +437,9 @@ class Planner final : public OmplVampPlanner {
 
   /// The limits compiled into the robot model, in full-body order.
   auto default_joint_limits() const -> JointLimits override {
-    std::array<float, Robot::dimension> zeros{}, ones{};
+    alignas(Robot::Configuration::S::Alignment)
+        std::array<float, Robot::Configuration::num_scalars_rounded>
+            zeros{}, ones{};
     ones.fill(1.0f);
     typename Robot::Configuration lo(zeros.data()), hi(ones.data());
     Robot::scale_configuration(lo);
