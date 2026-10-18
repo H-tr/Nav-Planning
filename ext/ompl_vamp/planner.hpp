@@ -390,14 +390,18 @@ class Planner final : public OmplVampPlanner {
   /// ``frozen_config`` (full body).  The environment is kept.
   void set_subgroup(std::vector<int> active_indices,
                     std::vector<double> frozen_config) override {
+    auto sorted = active_indices;
+    std::sort(sorted.begin(), sorted.end());
     if (frozen_config.size() != Robot::dimension ||
-        std::any_of(active_indices.begin(), active_indices.end(), [](int i) {
-          return i < 0 || i >= static_cast<int>(Robot::dimension);
-        }))
+        std::any_of(sorted.begin(), sorted.end(),
+                    [](int i) {
+                      return i < 0 || i >= static_cast<int>(Robot::dimension);
+                    }) ||
+        std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end())
       throw std::invalid_argument(
           "set_subgroup: frozen_config needs " +
           std::to_string(Robot::dimension) +
-          " entries and active_indices must index them.");
+          " entries and active_indices must index them, each once.");
     const auto base =
         std::count_if(active_indices.begin(), active_indices.end(),
                       [](int i) { return i < 3; });

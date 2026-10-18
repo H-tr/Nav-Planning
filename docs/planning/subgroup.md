@@ -76,7 +76,8 @@ result = planner.plan(start, goal, planner_name="rrtc", time_limit=1.0,
 `OmplVampPlanner(robot, active_indices, frozen_config)` builds a
 subgroup planner directly.  The base joints (0, 1, 2) are planned
 together, leading the subgroup — any other combination with base
-joints raises.  Joint limits are kept for the full body, so they survive
+joints raises, as do indices outside 0–4, repeated indices and a frozen
+configuration without five entries.  Joint limits are kept for the full body, so they survive
 `set_subgroup`; `base_theta_joint` is periodic and its limits are not
 used.
 

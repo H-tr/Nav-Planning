@@ -82,6 +82,23 @@ def test_partial_base_subgroup_raises():
         planner.set_subgroup([0, 1, 3], [0.0] * 5)
 
 
+@pytest.mark.parametrize(
+    "active,frozen",
+    [
+        ([3, 5], [0.0] * 5),  # index past the body
+        ([-1, 4], [0.0] * 5),
+        ([3, 4], [0.0] * 4),  # frozen configuration too short
+        ([3, 4], [0.0] * 6),  # and too long
+        ([3, 4, 3, 4, 3, 4], [0.0] * 5),  # repeated joints, more than the body
+    ],
+)
+def test_subgroup_inputs_are_checked(active, frozen):
+    with pytest.raises(ValueError):
+        OmplVampPlanner("locobot", active, frozen)
+    with pytest.raises(ValueError):
+        OmplVampPlanner("locobot").set_subgroup(active, frozen)
+
+
 # A point the camera hits at pan 0, tilt 0 but clears when tilted.
 CAMERA_OBSTACLE = {"locobot": (0.09, 0.0, 0.522), "ridgeback": (0.02, 0.0, 1.2)}
 
