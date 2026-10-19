@@ -83,6 +83,52 @@ def test_partial_base_subgroup_raises():
 
 
 @pytest.mark.parametrize(
+    "active,frozen",
+    [
+        ([3, 5], [0.0] * 5),  # index past the body
+        ([-1, 4], [0.0] * 5),
+        ([3, 4], [0.0] * 4),  # frozen configuration too short
+        ([3, 4], [0.0] * 6),  # and too long
+        ([3, 4, 3, 4, 3, 4], [0.0] * 5),  # repeated joints, more than the body
+    ],
+)
+def test_subgroup_inputs_are_checked(active, frozen):
+    with pytest.raises(ValueError):
+        OmplVampPlanner("locobot", active, frozen)
+    with pytest.raises(ValueError):
+        OmplVampPlanner("locobot").set_subgroup(active, frozen)
+
+
+# A point the camera hits at pan 0, tilt 0 but clears when tilted.
+CAMERA_OBSTACLE = {"locobot": (0.09, 0.0, 0.522), "ridgeback": (0.02, 0.0, 1.2)}
+
+
+@pytest.mark.parametrize("robot", ROBOTS)
+@pytest.mark.parametrize(
+    "planner_name", ["kpiece", "bkpiece", "lbkpiece", "pdst", "stride"]
+)
+def test_camera_subgroup_grows_from_blocked_motions(robot, planner_name):
+    """Planners that grow from the valid part of a blocked motion, on a
+    subgroup without the base: the camera pans past a point by tilting."""
+    planner = OmplVampPlanner(robot.ROBOT_NAME, [3, 4], robot.HOME_JOINTS.tolist())
+    planner.add_pointcloud(
+        np.array([CAMERA_OBSTACLE[robot.ROBOT_NAME]], np.float32), 0.0
+    )
+    assert not planner.validate(np.zeros(2))
+    start, goal = np.array([-1.5, 0.0]), np.array([1.5, 0.0])
+    result = planner.plan(
+        start,
+        goal,
+        planner_name=planner_name,
+        time_limit=1.0,
+        simplify=False,
+        interpolate=False,
+    )
+    assert result.solved
+    assert planner.validate_batch(planner.interpolate_path(result.path, 0, 64.0)).all()
+
+
+@pytest.mark.parametrize(
     "robot,heights",
     [(locobot, (0.4, 0.6)), (ridgeback, (1.1, 1.3))],
 )
@@ -109,7 +155,7 @@ def test_geometric_plan_is_valid(subgroup, room):
         config=PlannerConfig(time_limit=2.0, interpolate=False),
         pointcloud=room,
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
     start = np.r_[scene.START, 0.0, 0.0]
     goal = np.r_[scene.GOALS["behind pillar"], 0.5, -0.2]
     result = planner.plan(start, goal)
@@ -125,7 +171,7 @@ def test_locobot_path_follows_reeds_shepp(room):
         config=PlannerConfig(time_limit=2.0, resolution=256.0),
         pointcloud=room,
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
     result = planner.plan(np.array(scene.START), np.array(scene.GOALS["behind pillar"]))
     assert result.success
     step = np.diff(result.path[:, :2], axis=0)

@@ -15,8 +15,8 @@
 
 ``spheres`` runs after foam: it cuts ``<robot>_base.urdf`` out of the
 spherized URDF — the links that do not move with the camera, with exactly
-the same spheres, the collision model of the multilevel planners' base
-level — and completes the SRDF (see ``spheres``).
+the same spheres; no planner uses it — and completes the SRDF (see
+``spheres``).
 
     python scripts/build_robot_description.py description <assets> <resources>
     python scripts/build_robot_description.py spheres <resources> <robot>

@@ -17,11 +17,7 @@
  *     joints;
  *   * without it — a RealVectorStateSpace.
  *
- * Every OMPL geometric planner runs on that space through SimpleSetup.
- * Subgroups with the base can also use OMPL's multilevel planners
- * (``qrrt``, ``qrrtstar``, ``qmp``, ``qmpstar``) with the hierarchy
- * SE(2) -> SE(2) x R^N, whose base level checks only the links that do
- * not move with the camera.
+ * Every OMPL geometric planner runs on that space.
  *
  * Joint limits are kept for the full body and bound every active state
  * space, so they survive ``set_subgroup``.  ``base_theta_joint`` is
@@ -40,12 +36,6 @@
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/PathSimplifier.h>
 #include <ompl/geometric/SimpleSetup.h>
-// OMPL — multilevel (fiber bundle) planners
-#include <ompl/multilevel/datastructures/projections/XRN_X_SE2.h>
-#include <ompl/multilevel/planners/qmp/QMP.h>
-#include <ompl/multilevel/planners/qmp/QMPStar.h>
-#include <ompl/multilevel/planners/qrrt/QRRT.h>
-#include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 // OMPL — informed trees
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
 #include <ompl/geometric/planners/informedtrees/AITstar.h>
@@ -75,7 +65,6 @@
 #include <ompl/geometric/planners/rrt/RRTXstatic.h>
 #include <ompl/geometric/planners/rrt/RRTsharp.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
-#include <ompl/geometric/planners/rrt/STRRTstar.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
 // OMPL — exploration-based
 #include <ompl/geometric/planners/est/BiEST.h>
@@ -107,7 +96,6 @@
 namespace nav_planning {
 
 namespace og = ompl::geometric;
-namespace om = ompl::multilevel;
 
 /// (N, dof) waypoints and (N, 3) points, row-major so numpy arrays map
 /// onto them without per-element conversion.
@@ -138,8 +126,8 @@ class OmplVampPlanner {
 
   virtual auto plan(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,
                     const std::string& planner_name, double time_limit,
-                    bool simplify, bool interpolate, int interpolate_count,
-                    double resolution) -> PlanResult = 0;
+                    bool simplify, bool interpolate, double resolution)
+      -> PlanResult = 0;
   virtual auto plan_kinodynamic(const std::vector<double>& start,
                                 const std::vector<double>& start_velocity,
                                 const std::vector<double>& goal,
@@ -221,26 +209,12 @@ class Planner final : public OmplVampPlanner {
 
   auto plan(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,
             const std::string& planner_name, double time_limit, bool simplify,
-            bool interpolate, int interpolate_count, double resolution)
-      -> PlanResult override {
+            bool interpolate, double resolution) -> PlanResult override {
     check_dim(start.size(), "plan: start");
     check_dim(goal.size(), "plan: goal");
-    const bool multilevel = planner_name == "qrrt" ||
-                            planner_name == "qrrtstar" ||
-                            planner_name == "qmp" || planner_name == "qmpstar";
-    if (multilevel && sub_.layout == Layout::kJoints)
-      throw std::invalid_argument("plan: multilevel planner '" + planner_name +
-                                  "' needs the base in the subgroup.");
 
-    ob::SpaceInformationPtr si = make_space_information();
-    ob::PlannerPtr planner;
-    if (multilevel) {
-      auto [levels, projections] = multilevel_levels();
-      si = levels.back();
-      planner = create_multilevel_planner(levels, projections, planner_name);
-    } else {
-      planner = create_geometric_planner(si, planner_name);
-    }
+    const ob::SpaceInformationPtr si = make_space_information();
+    const ob::PlannerPtr planner = create_geometric_planner(si, planner_name);
     auto pdef = std::make_shared<ob::ProblemDefinition>(si);
     ob::ScopedState<> ompl_start(si->getStateSpace());
     ob::ScopedState<> ompl_goal(si->getStateSpace());
@@ -250,8 +224,7 @@ class Planner final : public OmplVampPlanner {
     planner->setProblemDefinition(pdef);
     planner->setup();
 
-    // Return on the first exact solution: the multilevel planners only
-    // stop early on their lower levels.
+    // Return on the first exact solution, the optimizing planners too.
     auto ptc = ob::plannerOrTerminationCondition(
         ob::timedPlannerTerminationCondition(time_limit),
         ob::exactSolnPlannerTerminationCondition(pdef));
@@ -272,7 +245,7 @@ class Planner final : public OmplVampPlanner {
     }
     auto& path = *pdef->getSolutionPath()->as<og::PathGeometric>();
     if (simplify) og::PathSimplifier(si).simplifyMax(path);
-    if (interpolate) densify(path, interpolate_count, resolution);
+    if (interpolate) densify(path, 0, resolution);
     result.path_cost = path.length();
     result.path = to_waypoints(path);
     // The ends are start and goal; report them as given (SO(2) keeps the
@@ -416,14 +389,18 @@ class Planner final : public OmplVampPlanner {
   /// ``frozen_config`` (full body).  The environment is kept.
   void set_subgroup(std::vector<int> active_indices,
                     std::vector<double> frozen_config) override {
+    auto sorted = active_indices;
+    std::sort(sorted.begin(), sorted.end());
     if (frozen_config.size() != Robot::dimension ||
-        std::any_of(active_indices.begin(), active_indices.end(), [](int i) {
-          return i < 0 || i >= static_cast<int>(Robot::dimension);
-        }))
+        std::any_of(sorted.begin(), sorted.end(),
+                    [](int i) {
+                      return i < 0 || i >= static_cast<int>(Robot::dimension);
+                    }) ||
+        std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end())
       throw std::invalid_argument(
           "set_subgroup: frozen_config needs " +
           std::to_string(Robot::dimension) +
-          " entries and active_indices must index them.");
+          " entries and active_indices must index them, each once.");
     const auto base =
         std::count_if(active_indices.begin(), active_indices.end(),
                       [](int i) { return i < 3; });
@@ -460,7 +437,9 @@ class Planner final : public OmplVampPlanner {
 
   /// The limits compiled into the robot model, in full-body order.
   auto default_joint_limits() const -> JointLimits override {
-    std::array<float, Robot::dimension> zeros{}, ones{};
+    alignas(Robot::Configuration::S::Alignment)
+        std::array<float, Robot::Configuration::num_scalars_rounded>
+            zeros{}, ones{};
     ones.fill(1.0f);
     typename Robot::Configuration lo(zeros.data()), hi(ones.data());
     Robot::scale_configuration(lo);
@@ -570,6 +549,10 @@ class Planner final : public OmplVampPlanner {
     compound->addSubspace(make_base_space(), 1.0);
     compound->addSubspace(joints, 1.0);
     compound->lock();
+    // Planners that grid a projection (KPIECE, PDST, STRIDE, SBL) use the
+    // base position.
+    compound->registerDefaultProjection(
+        std::make_shared<ob::SubspaceProjectionEvaluator>(compound.get(), 0));
     space_ = compound;
   }
 
@@ -581,24 +564,6 @@ class Planner final : public OmplVampPlanner {
         std::make_shared<SubgroupMotionValidator<Spec>>(si, env_, sub_));
     si->setup();
     return si;
-  }
-
-  /// SE(2) -> SE(2) x R^N for subgroups with camera joints; the base
-  /// alone is a single level.
-  auto multilevel_levels() const
-      -> std::pair<std::vector<ob::SpaceInformationPtr>,
-                   std::vector<om::ProjectionPtr>> {
-    if (sub_.layout == Layout::kBase) return {{make_space_information()}, {}};
-    auto base = make_base_space();
-    auto base_si = std::make_shared<ob::SpaceInformation>(base);
-    base_si->setStateValidityChecker(
-        std::make_shared<BaseOnlyValidityChecker<Spec>>(base_si, env_));
-    base_si->setup();
-    // OMPL's factory only recognises a plain SE2 type tag; its SE2 x R^N
-    // projection only needs the SE2 state layout, which Reeds-Shepp shares.
-    auto projection = std::make_shared<om::Projection_SE2RN_SE2>(space_, base);
-    projection->makeFiberSpace();
-    return {{base_si, make_space_information()}, {projection}};
   }
 
   void densify(og::PathGeometric& path, int count, double resolution) const {
@@ -650,23 +615,6 @@ class Planner final : public OmplVampPlanner {
     return out;
   }
 
-  static auto create_multilevel_planner(
-      std::vector<ob::SpaceInformationPtr>& levels,
-      std::vector<om::ProjectionPtr>& projections, const std::string& name)
-      -> ob::PlannerPtr {
-    if (projections.empty()) {  // the base alone: a single level
-      if (name == "qrrt") return std::make_shared<om::QRRT>(levels);
-      if (name == "qrrtstar") return std::make_shared<om::QRRTStar>(levels);
-      if (name == "qmp") return std::make_shared<om::QMP>(levels);
-      return std::make_shared<om::QMPStar>(levels);
-    }
-    if (name == "qrrt") return std::make_shared<om::QRRT>(levels, projections);
-    if (name == "qrrtstar")
-      return std::make_shared<om::QRRTStar>(levels, projections);
-    if (name == "qmp") return std::make_shared<om::QMP>(levels, projections);
-    return std::make_shared<om::QMPStar>(levels, projections);
-  }
-
   static auto create_geometric_planner(const ob::SpaceInformationPtr& si,
                                        const std::string& name)
       -> ob::PlannerPtr {
@@ -678,7 +626,6 @@ class Planner final : public OmplVampPlanner {
       return std::make_shared<og::InformedRRTstar>(si);
     if (name == "rrtsharp") return std::make_shared<og::RRTsharp>(si);
     if (name == "rrtxstatic") return std::make_shared<og::RRTXstatic>(si);
-    if (name == "strrtstar") return std::make_shared<og::STRRTstar>(si);
     if (name == "lbtrrt") return std::make_shared<og::LBTRRT>(si);
     if (name == "trrt") return std::make_shared<og::TRRT>(si);
     if (name == "bitrrt") return std::make_shared<og::BiTRRT>(si);

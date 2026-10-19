@@ -212,7 +212,6 @@ class OmplVampPlanner:
         time_limit: float = 10.0,
         simplify: bool = True,
         interpolate: bool = True,
-        interpolate_count: int = 0,
         resolution: float = 64.0,
     ) -> PlanResult: ...
     def plan_kinodynamic(

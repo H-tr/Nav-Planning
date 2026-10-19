@@ -87,9 +87,9 @@ models.
 | Model | Spheres | Used by |
 |---|---:|---|
 | `LocobotWholeBody` | 312 | every LoCoBot check |
-| `LocobotBase` | 228 | base level of the multilevel planners |
+| `LocobotBase` | 228 | no planner |
 | `RidgebackWholeBody` | 309 | every Ridgeback check |
-| `RidgebackBase` | 214 | base level of the multilevel planners |
+| `RidgebackBase` | 214 | no planner |
 
 Coverage (`scripts/sphere_coverage.py`: 20k surface samples per link
 plus its vertices, tested against the link's spheres):

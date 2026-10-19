@@ -111,9 +111,9 @@ result = planner.plan_kinodynamic(q_now, new_goal, start_velocity=qd_now)
 ```
 
 Trajectories are collision-free at zero clearance, up to the sampling
-resolution, like every VAMP edge: re-checked every 2 ms, 1–3 % of the
-demo-scene trajectories (50 seeds per leg and subgroup) touch an
-obstacle point between two collision samples.
+resolution, like every VAMP edge: re-checked every 2 ms, 2 of the 240
+demo-scene trajectories touch an obstacle point between two collision
+samples ([results](#results-on-the-demo-scene)).
 
 ## Configuration
 
@@ -139,26 +139,32 @@ can be scaled with `velocity_scale` / `acceleration_scale`.
 (examples/planning/scene.py: two rooms joined by a 1.2 m doorway, a
 table, a low shelf, two pillars; 96k points) 20 times each, with FLASK
 and with RRT-Connect (as PHANTOM calls it: `simplify=True,
-interpolate=False`), single-threaded on an AMD EPYC 7543:
+interpolate=False`).  *Touch* counts the plans that touch an obstacle
+point between two collision samples: FLASK trajectories re-checked
+every 2 ms, RRT-Connect paths densified along the base curves 8× finer
+than the motion checks.
+Measured with `pixi run python examples/planning/kinodynamic.py` at
+commit 38b824f on 2026-10-19, single-threaded on an AMD EPYC 7543; raw
+output in `/nas/pollux/tianrun/nav_geo/demo_scene_38b824f.txt`.
 
-| Subgroup | Leg | FLASK success | FLASK median / p95 | Duration | RRT-Connect success | RRT-Connect median / p95 |
-|---|---|---|---|---|---|---|
-| locobot_base | room 2 | 20/20 | 0.3 / 0.4 ms | 22.5 s | 20/20 | 1.7 / 2.9 ms |
-| locobot_base | behind pillar | 20/20 | 51.3 / 102.0 ms | 17.3 s | 20/20 | 2.5 / 6.7 ms |
-| locobot_base | table | 20/20 | 12.5 / 67.7 ms | 8.2 s | 20/20 | 0.8 / 1.4 ms |
-| locobot_whole_body | room 2 | 20/20 | 0.3 / 0.4 ms | 22.5 s | 20/20 | 2.1 / 13.2 ms |
-| locobot_whole_body | behind pillar | 20/20 | 51.8 / 100.9 ms | 16.6 s | 20/20 | 3.8 / 34.7 ms |
-| locobot_whole_body | table | 20/20 | 11.0 / 57.3 ms | 6.6 s | 20/20 | 1.0 / 1.9 ms |
-| ridgeback_base | room 2 | 20/20 | 0.5 / 0.6 ms | 8.2 s | 20/20 | 4.9 / 21.6 ms |
-| ridgeback_base | behind pillar | 20/20 | 30.2 / 101.7 ms | 8.5 s | 20/20 | 6.0 / 29.9 ms |
-| ridgeback_base | table | 20/20 | 0.1 / 0.2 ms | 3.2 s | 20/20 | 0.4 / 1.0 ms |
-| ridgeback_whole_body | room 2 | 20/20 | 0.6 / 0.6 ms | 8.6 s | 20/20 | 12.1 / 37.7 ms |
-| ridgeback_whole_body | behind pillar | 20/20 | 33.2 / 107.2 ms | 9.4 s | 20/20 | 9.2 / 60.4 ms |
-| ridgeback_whole_body | table | 20/20 | 0.2 / 0.2 ms | 3.4 s | 20/20 | 0.6 / 1.9 ms |
+| Subgroup | Leg | FLASK success | FLASK median / p95 | Duration | FLASK touch | RRT-Connect success | RRT-Connect median / p95 | RRT-Connect touch |
+|---|---|---|---|---|---|---|---|---|
+| locobot_base | room 2 | 20/20 | 0.4 / 0.4 ms | 22.5 s | 0 | 20/20 | 2.1 / 3.5 ms | 0 |
+| locobot_base | behind pillar | 20/20 | 51.7 / 106.6 ms | 17.3 s | 1 | 20/20 | 2.5 / 10.3 ms | 0 |
+| locobot_base | table | 20/20 | 12.9 / 67.9 ms | 8.2 s | 0 | 20/20 | 0.8 / 1.3 ms | 0 |
+| locobot_whole_body | room 2 | 20/20 | 0.4 / 0.4 ms | 22.5 s | 0 | 20/20 | 2.4 / 9.2 ms | 0 |
+| locobot_whole_body | behind pillar | 20/20 | 52.5 / 94.1 ms | 16.7 s | 0 | 20/20 | 3.3 / 8.0 ms | 1 |
+| locobot_whole_body | table | 20/20 | 11.1 / 58.0 ms | 6.6 s | 1 | 20/20 | 0.9 / 1.2 ms | 0 |
+| ridgeback_base | room 2 | 20/20 | 0.6 / 0.7 ms | 8.2 s | 0 | 20/20 | 5.1 / 29.7 ms | 0 |
+| ridgeback_base | behind pillar | 20/20 | 38.4 / 152.7 ms | 9.1 s | 0 | 20/20 | 8.4 / 35.5 ms | 2 |
+| ridgeback_base | table | 20/20 | 0.2 / 0.2 ms | 3.2 s | 0 | 20/20 | 0.5 / 1.7 ms | 0 |
+| ridgeback_whole_body | room 2 | 20/20 | 0.7 / 0.7 ms | 8.6 s | 0 | 20/20 | 7.2 / 51.9 ms | 0 |
+| ridgeback_whole_body | behind pillar | 20/20 | 32.7 / 130.7 ms | 9.7 s | 0 | 20/20 | 12.9 / 48.1 ms | 0 |
+| ridgeback_whole_body | table | 20/20 | 0.2 / 0.2 ms | 3.4 s | 0 | 20/20 | 1.0 / 1.6 ms | 0 |
 
 Sampled every 2 ms, the largest velocity or acceleration of any of the
 240 FLASK trajectories was 1.000 × its limit (base speed and yaw rate),
 and the LoCoBot's lateral speed was exactly zero.  Open-floor legs plan
 in under a millisecond (a direct connection); legs that steer around
-the pillar take tens of milliseconds, including up to 50 ms of
-simplification.
+the pillar take tens of milliseconds, including up to 50 ms
+(`simplify_time_limit`) of simplification.

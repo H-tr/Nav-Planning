@@ -166,7 +166,7 @@ def make_planner(subgroup, room):
     planner = create_planner(
         subgroup, config=PlannerConfig(time_limit=1.0), pointcloud=room
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
     return planner
 
 

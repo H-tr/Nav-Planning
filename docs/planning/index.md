@@ -7,8 +7,8 @@
     ---
 
     All of [OMPL](https://ompl.kavrakilab.org/)'s mature sampling-based
-    planners (31 geometric, 4 multilevel), driven by one uniform Python
-    call.  No glue code to swap planners — change a string.
+    planners (30 geometric), driven by one uniform Python call.  No
+    glue code to swap planners — change a string.
 
 -   __VAMP backend__
 
@@ -67,9 +67,10 @@ The motion validator samples each edge along that curve at VAMP's
 resolution (32 samples per unit of configuration-space length), so path
 simplification and interpolation, which use the same curves, stay
 collision-free up to that resolution — like VAMP's own straight edges.
-On the demo scene, re-checking densified paths 8× finer finds an
-obstacle point inside a sphere on 9–12 % of the Ridgeback's paths and
-0–1 % of the LoCoBot's.
+On the demo scene, re-checking RRT-Connect paths densified 8× finer
+finds an obstacle point inside a sphere on 2 of the Ridgeback's 120
+paths and 1 of the LoCoBot's 120
+([measurement](kinodynamic.md#results-on-the-demo-scene)).
 
 ## Supported planners
 
@@ -81,14 +82,13 @@ accepts any of:
 
     | Family | Planners |
     |---|---|
-    | RRT | `rrtc`, `rrt`, `trrt`, `bitrrt`, `strrtstar`, `lbtrrt` |
+    | RRT | `rrtc`, `rrt`, `trrt`, `bitrrt`, `lbtrrt` |
     | KPIECE | `kpiece`, `bkpiece`, `lbkpiece` |
     | PRM | `prm`, `lazyprm`, `spars`, `spars2` |
     | Exploration | `est`, `biest`, `sbl`, `stride`, `pdst` |
     | RRT\*-feasible | `rrtsharp`, `rrtxstatic` |
-    | Multilevel | `qrrt`, `qmp` |
 
-=== "Asymptotically optimal (keep refining until budget)"
+=== "Asymptotically optimal (stopped at the first solution here)"
 
     | Family | Planners |
     |---|---|
@@ -96,12 +96,22 @@ accepts any of:
     | Informed trees | `bitstar`, `abitstar`, `aitstar`, `eitstar`, `blitstar` |
     | FMT | `fmt`, `bfmt` |
     | PRM\* | `prmstar`, `lazyprmstar` |
-    | Multilevel | `qrrtstar`, `qmpstar` |
 
-Every planner returns on the first exact solution.  The multilevel
-planners (OMPL fiber bundles) plan the base first, in SE(2) against the
-links that do not move with the camera, then lift the path into the
-whole body.
+Every planner returns on the first exact solution.  With the base and
+the camera joints, the planners that grid a projection (KPIECE,
+BKPIECE, LBKPIECE, SBL, STRIDE, PDST) use the base position.
+
+Known OMPL behaviour:
+
+- The informed planners (`informed_rrtstar`, `bitstar`, `abitstar`,
+  `aitstar`, `eitstar`, `blitstar`) need a single state space, so OMPL
+  rejects them for the whole-body subgroups (SE(2) × R²).
+- BLIT\* can throw "Asked to remove vertex from reverse children that is
+  currently not a child"; `tests/test_planner_construction.py` sees it on
+  the base subgroups of both robots, though not on every run.
+- `fmt` finds no path for the LoCoBot (Reeds-Shepp base), nor `bfmt` for
+  its whole body; `bfmt` also missed the LoCoBot base's test path within
+  0.5 s in 1 of 15 runs of `tests/test_planner_construction.py`.
 
 ## Minimal example
 
@@ -116,7 +126,7 @@ planner = create_planner(
     config=PlannerConfig(planner_name="rrtc", time_limit=1.0),
     pointcloud=obstacle_cloud,           # (N, 3) np.float32
 )
-planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+planner.set_joint_limits({"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)})
 
 start = np.zeros(5)                      # x, y, theta, pan, tilt
 goal = np.array([5.5, 1.9, np.pi / 2, 1.5, -0.5])
@@ -145,15 +155,15 @@ PlannerConfig(
     # After the raw path, run OMPL's shortcutter.
     simplify=True,
 
-    # Resample the (simplified) path densely along the base curves.
-    #   interpolate_count > 0   → exactly this many total waypoints
-    #   resolution > 0.0        → ceil(edge_length * resolution) samples
-    #                             per edge
-    #   both 0                  → OMPL's default longest-valid-segment
-    #                             fraction
+    # Resample the (simplified) path densely along the base curves:
+    # ceil(edge_length * resolution) samples per edge, or OMPL's default
+    # longest-valid-segment fraction for resolution=0.
     interpolate=True,
     resolution=64.0,
-    interpolate_count=0,
+
+    # Joint ranges to sample in, by name; the others keep the model's
+    # (the base spans ±10 m).  Same as MotionPlanner.set_joint_limits.
+    joint_limits={"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)},
 )
 ```
 

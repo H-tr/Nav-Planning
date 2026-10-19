@@ -7,7 +7,10 @@ percentile planning times, and the trajectory durations.  Every FLASK
 trajectory is sampled every 2 ms and checked against the robot's
 limits; the largest ratio of a sampled velocity / acceleration to its
 limit is printed (1.00 = at the limit), with the LoCoBot's largest
-lateral speed.
+lateral speed.  The "touch" columns count the plans that touch an
+obstacle point between the planner's collision samples: FLASK
+trajectories re-checked every 2 ms, RRT-Connect paths densified along
+the base curves 8x finer than the motion checks (``DENSE``).
 
     pixi run python examples/planning/kinodynamic.py
 """
@@ -21,6 +24,7 @@ from nav_planning.types import KinodynamicConfig, PlannerConfig
 
 TRIALS = 20
 DT = 0.002
+DENSE = 8 * 32  # samples per unit length; the motion checks use 32
 CAMERA_GOAL = {"locobot": (0.8, 0.4), "ridgeback": (1.5, -0.5)}
 
 
@@ -51,9 +55,10 @@ def main():
     worst, lateral = {}, 0.0
     print(
         "| Subgroup | Leg | FLASK success | FLASK median / p95 | Duration "
-        "| RRT-Connect success | RRT-Connect median / p95 |"
+        "| FLASK touch | RRT-Connect success | RRT-Connect median / p95 "
+        "| RRT-Connect touch |"
     )
-    print("|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|---|")
     for robot in (locobot, ridgeback):
         for subgroup in robot.PLANNING_SUBGROUPS:
             planner = create_planner(
@@ -63,13 +68,13 @@ def main():
                 ),
                 pointcloud=cloud,
             )
-            planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+            planner.set_joint_limits(scene.BASE_LIMITS)
             for leg, goal in scene.GOALS.items():
                 start, goal = np.array(scene.START), np.array(goal)
                 if subgroup.endswith("whole_body"):
                     start = np.r_[start, 0.0, 0.0]
                     goal = np.r_[goal, CAMERA_GOAL[robot.ROBOT_NAME]]
-                flask, rrtc, durations = [], [], []
+                flask, rrtc, durations, flask_touch, rrtc_touch = [], [], [], 0, 0
                 for trial in range(TRIALS):
                     cfg = KinodynamicConfig(time_limit=2.0, seed=trial + 1)
                     k = planner.plan_kinodynamic(start, goal, config=cfg)
@@ -82,15 +87,20 @@ def main():
                             worst[key] = max(worst.get(key, 0.0), value)
                         if robot is locobot:
                             lateral = max(lateral, lat)
+                        _, q, _, _ = k.trajectory.sample_uniform(DT)
+                        flask_touch += not planner.validate_batch(q).all()
                     g = planner.plan(start, goal)
                     if g.success:
                         rrtc.append(g.planning_time_ns * 1e-6)
+                        dense = planner.interpolate_path(g.path, resolution=DENSE)
+                        rrtc_touch += not planner.validate_batch(dense).all()
                 print(
                     f"| {subgroup} | {leg} | {len(flask)}/{TRIALS} "
                     f"| {np.median(flask):.1f} / {np.percentile(flask, 95):.1f} ms "
-                    f"| {np.median(durations):.1f} s "
+                    f"| {np.median(durations):.1f} s | {flask_touch} "
                     f"| {len(rrtc)}/{TRIALS} "
-                    f"| {np.median(rrtc):.1f} / {np.percentile(rrtc, 95):.1f} ms |"
+                    f"| {np.median(rrtc):.1f} / {np.percentile(rrtc, 95):.1f} ms "
+                    f"| {rrtc_touch} |"
                 )
     print("\nLargest sampled value / limit over all FLASK trajectories:")
     for key, value in worst.items():
