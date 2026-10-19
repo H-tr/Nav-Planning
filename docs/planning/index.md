@@ -88,7 +88,7 @@ accepts any of:
     | Exploration | `est`, `biest`, `sbl`, `stride`, `pdst` |
     | RRT\*-feasible | `rrtsharp`, `rrtxstatic` |
 
-=== "Asymptotically optimal (keep refining until budget)"
+=== "Asymptotically optimal (stopped at the first solution here)"
 
     | Family | Planners |
     |---|---|
@@ -106,8 +106,9 @@ Known OMPL behaviour:
 - The informed planners (`informed_rrtstar`, `bitstar`, `abitstar`,
   `aitstar`, `eitstar`, `blitstar`) need a single state space, so OMPL
   rejects them for the whole-body subgroups (SE(2) × R²).
-- BLIT\* can throw "Asked to remove vertex from reverse children that is
-  currently not a child", most often on the Ridgeback's base subgroup.
+- BLIT\* throws "Asked to remove vertex from reverse children that is
+  currently not a child" on the base subgroups of both robots
+  (`tests/test_planner_construction.py::test_every_planner_plans`).
 - `fmt` finds no path for the LoCoBot (Reeds-Shepp base), nor `bfmt` for
   its whole body.
 
