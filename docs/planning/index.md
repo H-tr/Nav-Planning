@@ -106,9 +106,9 @@ Known OMPL behaviour:
 - The informed planners (`informed_rrtstar`, `bitstar`, `abitstar`,
   `aitstar`, `eitstar`, `blitstar`) need a single state space, so OMPL
   rejects them for the whole-body subgroups (SE(2) × R²).
-- BLIT\* throws "Asked to remove vertex from reverse children that is
-  currently not a child" on the base subgroups of both robots
-  (`tests/test_planner_construction.py::test_every_planner_plans`).
+- BLIT\* can throw "Asked to remove vertex from reverse children that is
+  currently not a child"; `tests/test_planner_construction.py` sees it on
+  the base subgroups of both robots, though not on every run.
 - `fmt` finds no path for the LoCoBot (Reeds-Shepp base), nor `bfmt` for
   its whole body.
 
