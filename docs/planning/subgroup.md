@@ -42,10 +42,16 @@ full_path = planner.embed_path(result.path)     # 3-D path → 5-D path
 `base_config` defaults to `HOME_JOINTS` (all zero).  Pass the live joint
 reading to pin the camera exactly where it is.
 
-`set_base_bounds(x_lo, x_hi, y_lo, y_hi)` sets the box the planner
-samples base positions in (default ±10 m); the heading is periodic.
+`set_joint_limits({joint name: (lower, upper)})` sets the ranges the
+planner samples in, for any joint of the full body: for example
+`{"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)}` for the
+map's extent (the model spans ±10 m).  Joints left out keep their
+compiled range, `None` restores every compiled range, and an unknown
+name or a bad range raises.  With the base active the heading is
+periodic, so the `base_theta_joint` range is not used.  `bounds` gives
+the active joints' ranges, `joint_limits` the full body's.
 `set_subgroup(name)` switches between a robot's subgroups and keeps the
-point cloud.
+point cloud and the joint ranges.
 
 ## The low-level API
 

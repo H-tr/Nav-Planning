@@ -24,8 +24,8 @@ acceleration limits, for every subgroup.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from types import ModuleType
-from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -36,21 +36,6 @@ from nav_planning.types import (
     PlanningResult,
     PlanningStatus,
 )
-
-
-@runtime_checkable
-class MotionPlannerBase(Protocol):
-    """Protocol for motion planner backends."""
-
-    @property
-    def robot_name(self) -> str: ...
-
-    @property
-    def num_dof(self) -> int: ...
-
-    def plan(self, start: np.ndarray, goal: np.ndarray) -> PlanningResult: ...
-
-    def validate(self, configuration: np.ndarray) -> bool: ...
 
 
 def _robot_module(robot_name: str) -> ModuleType:
@@ -112,6 +97,9 @@ class MotionPlanner:
         )
         self._apply_subgroup_state(active_indices)
 
+        if config.joint_limits:
+            self.set_joint_limits(config.joint_limits)
+
         if pointcloud is not None:
             self.add_pointcloud(pointcloud)
 
@@ -158,6 +146,24 @@ class MotionPlanner:
         return self._ndof
 
     @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        """``(lower, upper)`` joint limits of the active DOF (the heading of
+        an active base spans ``[-pi, pi]``)."""
+        return self._planner.lower_bounds(), self._planner.upper_bounds()
+
+    @property
+    def joint_limits(self) -> dict[str, tuple[float, float]]:
+        """``{joint name: (lower, upper)}`` the planner samples in, for every
+        joint of the full body.  :attr:`bounds` gives the active joints'
+        ranges as arrays.
+        """
+        lower, upper = self._planner.joint_limits()
+        return {
+            name: (float(lo), float(hi))
+            for name, lo, hi in zip(self._full_names, lower, upper)
+        }
+
+    @property
     def joint_names(self) -> list[str]:
         """Joint names controlled by this planner, in DOF order."""
         return self._joint_names
@@ -177,28 +183,40 @@ class MotionPlanner:
         """The 5-DOF stance frozen for joints outside this subgroup."""
         return self._base_config.copy()
 
-    @property
-    def has_base(self) -> bool:
-        """True if the mobile base joints (x, y, theta) are active.
+    # ── Joint limits ──────────────────────────────────────────────────
 
-        When True, the base is planned in SE(2): Reeds-Shepp curves for
-        the LoCoBot, holonomic SE(2) for the Ridgeback.
-        """
-        return self._has_base
-
-    def set_base_bounds(
-        self, x_lo: float, x_hi: float, y_lo: float, y_hi: float
+    def set_joint_limits(
+        self, limits: Mapping[str, tuple[float, float]] | None = None
     ) -> None:
-        """Set the base (x, y) workspace bounds.
+        """Set the joint ranges the planner samples in, by joint name.
 
-        The planner samples base positions inside this box; the default
-        is the robot model's +-10 m.  The heading is periodic and has no
-        bounds.  Rebuilds the underlying OMPL state space in place — call
-        before ``plan()``.
+        Joints left out of ``limits`` take the range compiled into the
+        robot model, so ``None`` restores every compiled range.  The
+        ranges cover the full body and are kept across
+        :meth:`set_subgroup`.  Collision checking does not read them.
+        With the base active its heading is periodic, so the
+        ``base_theta_joint`` range is not used.
+
+        Args:
+            limits: ``{joint name: (lower, upper)}`` in metres for
+                ``base_x_joint`` / ``base_y_joint`` and radians otherwise
+                — e.g. the map's extent for the base (the model spans
+                +-10 m), or a narrower camera range.
+
+        Raises:
+            ValueError: For an unknown joint name, or bounds that are not
+                finite with ``lower < upper``.  The ranges in effect are
+                then left unchanged.
         """
-        lower, upper = self._planner.joint_limits()
-        lower[:2] = x_lo, y_lo
-        upper[:2] = x_hi, y_hi
+        names = self._full_names
+        lower, upper = self._planner.default_joint_limits()
+        for name, (lo, hi) in (limits or {}).items():
+            if name not in names:
+                raise ValueError(
+                    f"Unknown joint {name!r}; the joints are {', '.join(names)}"
+                )
+            index = names.index(name)
+            lower[index], upper[index] = lo, hi
         self._planner.set_joint_limits(lower, upper)
 
     # ── Pointcloud environment ────────────────────────────────────────
@@ -224,10 +242,6 @@ class MotionPlanner:
     def has_pointcloud(self) -> bool:
         """``True`` if a pointcloud is currently registered."""
         return self._planner.has_pointcloud()
-
-    def clear_environment(self) -> None:
-        """Drop every registered obstacle (spheres and point clouds)."""
-        self._planner.clear_environment()
 
     # ── Point cloud filtering ────────────────────────────────────────
 
@@ -391,10 +405,15 @@ class MotionPlanner:
         start = np.asarray(start, dtype=np.float64)
         goal = np.asarray(goal, dtype=np.float64)
 
+        if len(start) != self._ndof:
+            raise ValueError(f"start has {len(start)} DOF, expected {self._ndof}")
+        if len(goal) != self._ndof:
+            raise ValueError(f"goal has {len(goal)} DOF, expected {self._ndof}")
+
         if not self._planner.validate(start):
-            return PlanningResult(PlanningStatus.INVALID_START, None, 0, 0, np.inf)
+            return PlanningResult(PlanningStatus.INVALID_START, None, 0, float("inf"))
         if not self._planner.validate(goal):
-            return PlanningResult(PlanningStatus.INVALID_GOAL, None, 0, 0, np.inf)
+            return PlanningResult(PlanningStatus.INVALID_GOAL, None, 0, float("inf"))
 
         if time_limit is None:
             time_limit = self._config.time_limit
@@ -406,15 +425,18 @@ class MotionPlanner:
             time_limit,
             self._config.simplify,
             self._config.interpolate,
-            self._config.interpolate_count,
             self._config.resolution,
         )
+
+        if not result.solved:
+            return PlanningResult(
+                PlanningStatus.FAILED, None, result.planning_time_ns, float("inf")
+            )
         return PlanningResult(
-            status=PlanningStatus.SUCCESS if result.solved else PlanningStatus.FAILED,
-            path=result.path if result.solved else None,
-            planning_time_ns=result.planning_time_ns,
-            iterations=0,
-            path_cost=result.path_cost,
+            PlanningStatus.SUCCESS,
+            np.array(result.path),
+            result.planning_time_ns,
+            result.path_cost,
         )
 
     def plan_kinodynamic(
@@ -591,14 +613,19 @@ class MotionPlanner:
             np.asarray(configurations, dtype=np.float64)
         )
 
-    def sample_valid(self) -> np.ndarray:
-        """Sample a random collision-free configuration."""
-        lo = self._planner.lower_bounds()
-        hi = self._planner.upper_bounds()
-        while True:
-            config = np.random.uniform(lo, hi)
-            if self._planner.validate(config):
-                return config
+    def sample_valid(self, max_samples: int = 100_000) -> np.ndarray:
+        """Sample a random collision-free configuration.
+
+        Raises:
+            RuntimeError: If none of ``max_samples`` uniform samples is valid.
+        """
+        lo, hi = self.bounds
+        for _ in range(0, max_samples, 256):
+            batch = np.random.uniform(lo, hi, (256, self._ndof))
+            valid = np.flatnonzero(self.validate_batch(batch))
+            if valid.size:
+                return batch[valid[0]]
+        raise RuntimeError(f"no valid configuration in {max_samples} samples")
 
 
 def available_robots() -> list[str]:

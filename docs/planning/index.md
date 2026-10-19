@@ -111,7 +111,7 @@ planner = create_planner(
     config=PlannerConfig(planner_name="rrtc", time_limit=1.0),
     pointcloud=obstacle_cloud,           # (N, 3) np.float32
 )
-planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+planner.set_joint_limits({"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)})
 
 start = np.zeros(5)                      # x, y, theta, pan, tilt
 goal = np.array([5.5, 1.9, np.pi / 2, 1.5, -0.5])
@@ -140,15 +140,15 @@ PlannerConfig(
     # After the raw path, run OMPL's shortcutter.
     simplify=True,
 
-    # Resample the (simplified) path densely along the base curves.
-    #   interpolate_count > 0   → exactly this many total waypoints
-    #   resolution > 0.0        → ceil(edge_length * resolution) samples
-    #                             per edge
-    #   both 0                  → OMPL's default longest-valid-segment
-    #                             fraction
+    # Resample the (simplified) path densely along the base curves:
+    # ceil(edge_length * resolution) samples per edge, or OMPL's default
+    # longest-valid-segment fraction for resolution=0.
     interpolate=True,
     resolution=64.0,
-    interpolate_count=0,
+
+    # Joint ranges to sample in, by name; the others keep the model's
+    # (the base spans ±10 m).  Same as MotionPlanner.set_joint_limits.
+    joint_limits={"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)},
 )
 ```
 

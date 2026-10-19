@@ -118,7 +118,7 @@ planner = create_planner(
     config=PlannerConfig(planner_name="rrtc", time_limit=1.0),
     pointcloud=cloud,                    # (N, 3) float32, world frame
 )
-planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+planner.set_joint_limits({"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)})
 
 start = np.array([0.0, 0.0, 0.0, 0.0, 0.0])   # x, y, theta, pan, tilt
 goal = np.array([6.0, 0.0, np.pi, 0.8, 0.4])

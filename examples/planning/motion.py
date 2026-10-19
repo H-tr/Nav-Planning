@@ -26,7 +26,7 @@ def main(subgroup: str = "locobot_base") -> None:
         config=PlannerConfig(planner_name="rrtc", time_limit=2.0),
         pointcloud=cloud,
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
 
     env = PyBulletEnv(getattr(robot, f"{robot.ROBOT_NAME}_robot_config"))
     env.add_pointcloud(cloud)

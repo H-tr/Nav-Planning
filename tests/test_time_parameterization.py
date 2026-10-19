@@ -120,7 +120,7 @@ def test_ridgeback_plan(room):
         config=PlannerConfig(planner_name="rrtc", time_limit=2.0, interpolate=False),
         pointcloud=room,
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
     start = np.r_[scene.START, 0.0, 0.0]
     goal = np.r_[scene.GOALS["behind pillar"], 1.5, -0.5]
     result = planner.plan(start, goal)

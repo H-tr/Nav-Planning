@@ -69,6 +69,10 @@ def room_pointcloud() -> np.ndarray:
     return np.concatenate(parts).astype(np.float32)
 
 
+# The base's range on this scene, for ``MotionPlanner.set_joint_limits``:
+# the 8 m x 6 m space inside the outer walls.
+BASE_LIMITS = {"base_x_joint": (-1.0, 7.0), "base_y_joint": (-3.0, 3.0)}
+
 # Base poses (x, y, theta) used by the examples, tests and benchmark.
 START = (0.0, 0.0, 0.0)
 GOALS = {

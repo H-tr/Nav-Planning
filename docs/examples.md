@@ -32,7 +32,7 @@ planner = create_planner(
     config=PlannerConfig(planner_name="rrtc", time_limit=2.0),
     pointcloud=cloud,
 )
-planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+planner.set_joint_limits(scene.BASE_LIMITS)  # the scene's 8 m x 6 m
 
 result = planner.plan(planner.extract_config(locobot.HOME_JOINTS), goal)
 env = PyBulletEnv(locobot.locobot_robot_config)

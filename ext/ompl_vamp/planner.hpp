@@ -127,8 +127,8 @@ class OmplVampPlanner {
 
   virtual auto plan(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,
                     const std::string& planner_name, double time_limit,
-                    bool simplify, bool interpolate, int interpolate_count,
-                    double resolution) -> PlanResult = 0;
+                    bool simplify, bool interpolate, double resolution)
+      -> PlanResult = 0;
   virtual auto plan_kinodynamic(const std::vector<double>& start,
                                 const std::vector<double>& start_velocity,
                                 const std::vector<double>& goal,
@@ -210,8 +210,7 @@ class Planner final : public OmplVampPlanner {
 
   auto plan(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,
             const std::string& planner_name, double time_limit, bool simplify,
-            bool interpolate, int interpolate_count, double resolution)
-      -> PlanResult override {
+            bool interpolate, double resolution) -> PlanResult override {
     check_dim(start.size(), "plan: start");
     check_dim(goal.size(), "plan: goal");
 
@@ -247,7 +246,7 @@ class Planner final : public OmplVampPlanner {
     }
     auto& path = *pdef->getSolutionPath()->as<og::PathGeometric>();
     if (simplify) og::PathSimplifier(si).simplifyMax(path);
-    if (interpolate) densify(path, interpolate_count, resolution);
+    if (interpolate) densify(path, 0, resolution);
     result.path_cost = path.length();
     result.path = to_waypoints(path);
     // The ends are start and goal; report them as given (SO(2) keeps the

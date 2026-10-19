@@ -109,7 +109,7 @@ def test_geometric_plan_is_valid(subgroup, room):
         config=PlannerConfig(time_limit=2.0, interpolate=False),
         pointcloud=room,
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
     start = np.r_[scene.START, 0.0, 0.0]
     goal = np.r_[scene.GOALS["behind pillar"], 0.5, -0.2]
     result = planner.plan(start, goal)
@@ -125,7 +125,7 @@ def test_locobot_path_follows_reeds_shepp(room):
         config=PlannerConfig(time_limit=2.0, resolution=256.0),
         pointcloud=room,
     )
-    planner.set_base_bounds(-1.0, 7.0, -3.0, 3.0)
+    planner.set_joint_limits(scene.BASE_LIMITS)
     result = planner.plan(np.array(scene.START), np.array(scene.GOALS["behind pillar"]))
     assert result.success
     step = np.diff(result.path[:, :2], axis=0)
