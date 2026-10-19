@@ -67,9 +67,10 @@ The motion validator samples each edge along that curve at VAMP's
 resolution (32 samples per unit of configuration-space length), so path
 simplification and interpolation, which use the same curves, stay
 collision-free up to that resolution — like VAMP's own straight edges.
-On the demo scene, re-checking densified paths 8× finer finds an
-obstacle point inside a sphere on 9–12 % of the Ridgeback's paths and
-0–1 % of the LoCoBot's.
+On the demo scene, re-checking RRT-Connect paths densified 8× finer
+finds an obstacle point inside a sphere on 2 of the Ridgeback's 120
+paths and 1 of the LoCoBot's 120
+([measurement](kinodynamic.md#results-on-the-demo-scene)).
 
 ## Supported planners
 

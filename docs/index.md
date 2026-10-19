@@ -29,9 +29,10 @@ generation, all behind a unified Python API.  A sister library of
 
     ---
 
-    VAMP's SIMD sphere checks against point clouds: RRT-Connect plans
-    across a two-room scene in a few milliseconds, FLASK returns
-    dynamically feasible trajectories in tens.
+    VAMP's SIMD sphere checks against point clouds: on the two-room
+    demo scene RRT-Connect plans in 0.6–24 ms and FLASK returns
+    dynamically feasible trajectories in 0.2–52 ms (medians,
+    [measurement](planning/kinodynamic.md#results-on-the-demo-scene)).
 
 </div>
 

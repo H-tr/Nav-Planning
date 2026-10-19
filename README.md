@@ -169,28 +169,31 @@ not by a straight line in joint space; `interpolate=True` (or
 
 `examples/planning/kinodynamic.py`: two rooms joined by a 1.2 m doorway,
 a table, a low shelf and two pillars (96k points, point radius 0); 20
-trials per leg, single-threaded on an AMD EPYC 7543.  RRT-Connect is the
-geometric planner as PHANTOM calls it (`simplify=True,
-interpolate=False`).
+trials per leg.  RRT-Connect is the geometric planner as PHANTOM calls
+it (`simplify=True, interpolate=False`).  Measured with
+`pixi run python examples/planning/kinodynamic.py` at commit 93a43d4 on
+2026-10-19, single-threaded on an AMD EPYC 7543; raw output in
+`/nas/pollux/tianrun/nav_geo/demo_scene_93a43d4.txt`.
 
 | Subgroup | Leg | FLASK median / p95 | Duration | RRT-Connect median / p95 |
 |---|---|---|---|---|
-| locobot_base | room 2 | 0.3 / 0.4 ms | 22.5 s | 1.7 / 2.9 ms |
-| locobot_base | behind pillar | 51.3 / 102.0 ms | 17.3 s | 2.5 / 6.7 ms |
-| locobot_base | table | 12.5 / 67.7 ms | 8.2 s | 0.8 / 1.4 ms |
-| locobot_whole_body | room 2 | 0.3 / 0.4 ms | 22.5 s | 2.1 / 13.2 ms |
-| locobot_whole_body | behind pillar | 51.8 / 100.9 ms | 16.6 s | 3.8 / 34.7 ms |
-| locobot_whole_body | table | 11.0 / 57.3 ms | 6.6 s | 1.0 / 1.9 ms |
-| ridgeback_base | room 2 | 0.5 / 0.6 ms | 8.2 s | 4.9 / 21.6 ms |
-| ridgeback_base | behind pillar | 30.2 / 101.7 ms | 8.5 s | 6.0 / 29.9 ms |
-| ridgeback_base | table | 0.1 / 0.2 ms | 3.2 s | 0.4 / 1.0 ms |
-| ridgeback_whole_body | room 2 | 0.6 / 0.6 ms | 8.6 s | 12.1 / 37.7 ms |
-| ridgeback_whole_body | behind pillar | 33.2 / 107.2 ms | 9.4 s | 9.2 / 60.4 ms |
-| ridgeback_whole_body | table | 0.2 / 0.2 ms | 3.4 s | 0.6 / 1.9 ms |
+| locobot_base | room 2 | 0.3 / 0.3 ms | 22.5 s | 2.2 / 7.2 ms |
+| locobot_base | behind pillar | 51.7 / 105.8 ms | 17.3 s | 3.1 / 9.5 ms |
+| locobot_base | table | 12.7 / 67.7 ms | 8.2 s | 1.0 / 1.7 ms |
+| locobot_whole_body | room 2 | 0.4 / 0.4 ms | 22.5 s | 2.3 / 4.8 ms |
+| locobot_whole_body | behind pillar | 52.4 / 93.1 ms | 16.7 s | 2.8 / 15.8 ms |
+| locobot_whole_body | table | 10.9 / 57.4 ms | 6.6 s | 0.9 / 1.6 ms |
+| ridgeback_base | room 2 | 0.6 / 0.7 ms | 8.2 s | 16.0 / 42.9 ms |
+| ridgeback_base | behind pillar | 36.4 / 146.3 ms | 9.1 s | 8.5 / 41.6 ms |
+| ridgeback_base | table | 0.2 / 0.2 ms | 3.2 s | 0.6 / 1.2 ms |
+| ridgeback_whole_body | room 2 | 0.7 / 0.7 ms | 8.6 s | 7.5 / 61.3 ms |
+| ridgeback_whole_body | behind pillar | 33.4 / 131.0 ms | 9.7 s | 24.0 / 66.4 ms |
+| ridgeback_whole_body | table | 0.2 / 0.2 ms | 3.4 s | 0.7 / 1.7 ms |
 
-Every plan succeeded (20/20).  Sampled every 2 ms, no FLASK trajectory
-exceeded a velocity or acceleration limit, and the LoCoBot's lateral
-speed was exactly zero.
+Every plan succeeded (20/20).  Sampled every 2 ms, the largest FLASK
+velocity or acceleration was 1.000 × its limit, and the LoCoBot's
+lateral speed was exactly zero.  Collisions between samples are in
+[docs/planning/kinodynamic.md](docs/planning/kinodynamic.md#results-on-the-demo-scene).
 
 ---
 
