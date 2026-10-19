@@ -9,8 +9,8 @@
 #   - RidgebackBase       (3 DOF)  from ridgeback_base.urdf + ridgeback_base.srdf
 #
 # The base models hold the links that do not move with the camera, cut
-# from the spherized URDF (scripts/spherize_robot.sh).  They are the
-# collision model of the multilevel planners' base level.
+# from the spherized URDF (scripts/spherize_robot.sh).  No planner uses
+# them.
 #
 # cricket's CppAD codegen is not bit-stable across runs: regenerating
 # can move spheres by ~1e-6 m.  Regenerate only when a URDF or SRDF
