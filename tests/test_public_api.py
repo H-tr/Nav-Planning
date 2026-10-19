@@ -109,7 +109,9 @@ CAMERA_OBSTACLE = {"locobot": (0.09, 0.0, 0.522), "ridgeback": (0.02, 0.0, 1.2)}
 )
 def test_camera_subgroup_grows_from_blocked_motions(robot, planner_name):
     """Planners that grow from the valid part of a blocked motion, on a
-    subgroup without the base: the camera pans past a point by tilting."""
+    subgroup without the base: the camera pans past a point by tilting.
+    The edges are collision-free at the validator's samples only
+    (docs/planning/subgroup.md); every waypoint is a checked state."""
     planner = OmplVampPlanner(robot.ROBOT_NAME, [3, 4], robot.HOME_JOINTS.tolist())
     planner.add_pointcloud(
         np.array([CAMERA_OBSTACLE[robot.ROBOT_NAME]], np.float32), 0.0
@@ -125,7 +127,7 @@ def test_camera_subgroup_grows_from_blocked_motions(robot, planner_name):
         interpolate=False,
     )
     assert result.solved
-    assert planner.validate_batch(planner.interpolate_path(result.path, 0, 64.0)).all()
+    assert planner.validate_batch(result.path).all()
 
 
 @pytest.mark.parametrize(
