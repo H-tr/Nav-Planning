@@ -81,6 +81,47 @@ configuration without five entries.  Joint limits are kept for the full body, so
 `set_subgroup`; `base_theta_joint` is periodic and its limits are not
 used.
 
+## What a camera-only subgroup's edges guarantee
+
+Without the base (for example `OmplVampPlanner(robot, [3, 4], frozen)`),
+an edge is checked by VAMP on the straight line between its ends, at
+`8 n` evenly spaced samples, `n = ceil(L / 8 * 32)` for an edge of length
+`L` (32 samples per unit).  The path is collision-free at those samples
+only.  Planners that keep the valid start of a blocked motion (the
+KPIECE family, PDST, STRIDE) add the last valid sample as a waypoint;
+that edge was checked at the samples of the longer motion that lie on
+it, which a fresh check of the edge does not reproduce.  Every waypoint
+is a checked state.
+
+On the camera-subgroup test scene (one obstacle point the camera hits at
+pan 0, tilt 0; pan from −1.5 to 1.5 rad; `simplify=False`), the paths
+that touch the point between those samples, densified 64 per unit:
+
+| Planner | LoCoBot | Ridgeback |
+|---|---:|---:|
+| `kpiece` | 6 / 2000 | 0 / 2000 |
+| `bkpiece` | 2 / 2000 | 0 / 2000 |
+| `lbkpiece` | 7 / 2000 | 0 / 2000 |
+| `pdst` | 9 / 2000 | 0 / 2000 |
+| `stride` | 11 / 2000 | 0 / 2000 |
+
+Of the 35 touching edges, 28 are valid at their own samples; the other
+7 fail those but are valid at every point of an even spacing `L / m`
+with `32 L <= m <= 64 L`, the samples a longer motion they were cut from
+can have had.  A fresh
+check of every edge rejects 1 of 1000 LoCoBot paths for `pdst` and for
+`stride` (an edge cut from a longer motion).  Measured at commit 5fb2f7b
+on 2026-10-19, single-threaded on an AMD EPYC 7543, with
+
+```bash
+pixi run python /nas/pollux/tianrun/nav_geo/camera_subgroup_rate.py locobot stride 2000
+pixi run python /nas/pollux/tianrun/nav_geo/camera_subgroup_fresh.py locobot stride 1000
+```
+
+for each robot and planner; raw output in
+`/nas/pollux/tianrun/nav_geo/camera_subgroup_rate.txt` and
+`camera_subgroup_fresh.txt`.
+
 ## When it matters
 
 The base subgroup is the right choice for navigation with the camera
