@@ -128,6 +128,7 @@ def known_failure(subgroup, planner_name):
     if (planner_name, subgroup) in {
         ("fmt", "locobot_base"),
         ("fmt", "locobot_whole_body"),
+        ("bfmt", "locobot_base"),
         ("bfmt", "locobot_whole_body"),
     }:
         return pytest.mark.xfail(reason="OMPL's FMT* finds no LoCoBot path")

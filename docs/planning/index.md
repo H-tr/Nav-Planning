@@ -110,7 +110,8 @@ Known OMPL behaviour:
   currently not a child"; `tests/test_planner_construction.py` sees it on
   the base subgroups of both robots, though not on every run.
 - `fmt` finds no path for the LoCoBot (Reeds-Shepp base), nor `bfmt` for
-  its whole body.
+  its whole body; `bfmt` also missed the LoCoBot base's test path within
+  0.5 s in 1 of 15 runs of `tests/test_planner_construction.py`.
 
 ## Minimal example
 
