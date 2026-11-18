@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!-- TortoBot has one link with collision geometry: no self-collision pairs -->
+<robot name="tortobot" />

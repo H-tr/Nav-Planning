@@ -8,6 +8,7 @@
 
 #include <nanobind/eigen/dense.h>
 #include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
@@ -28,6 +29,20 @@ using nav_planning::PlanResult;
 using nav_planning::flat::FlatTrajectory;
 
 namespace {
+
+/// An ESDF from NumPy: float32, (X, Y, Z), C order.
+using Field =
+    nb::ndarray<const float, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
+
+/// The field's values, read in place: the pointer holds a reference to the
+/// array and drops it under the GIL.
+auto in_place(const Field& field) -> std::shared_ptr<const float> {
+  auto* held = new Field(field);
+  return std::shared_ptr<const float>(held->data(), [held](const float*) {
+    nb::gil_scoped_acquire gil;
+    delete held;
+  });
+}
 
 auto to_matrix(const FlatTrajectory::Matrix& rows, int ndof)
     -> Eigen::MatrixXd {
@@ -53,8 +68,9 @@ auto eval_one(const FlatTrajectory& traj, double t, int which)
 
 NB_MODULE(_ompl_vamp, m) {
   m.doc() =
-      "OMPL + VAMP C++ planning extension for the LoCoBot and the "
-      "Ridgeback (5 DOF: planar base + camera pan and tilt).";
+      "OMPL + VAMP C++ planning extension for the LoCoBot, the Ridgeback "
+      "(5 DOF: planar base + camera pan and tilt) and TortoBot (4 DOF: "
+      "planar base + camera pan).";
 
   nb::class_<PlanResult>(m, "PlanResult")
       .def_ro("solved", &PlanResult::solved)
@@ -172,8 +188,8 @@ NB_MODULE(_ompl_vamp, m) {
       .def(nb::new_(
                [](const std::string& robot) { return make_planner(robot); }),
            nb::arg("robot"),
-           "Full-body planner (all five joints) of ``robot``: \"locobot\" or "
-           "\"ridgeback\".")
+           "Full-body planner (all joints) of ``robot``: \"locobot\", "
+           "\"ridgeback\" or \"tortobot\".")
       .def(
           nb::new_([](const std::string& robot, std::vector<int> active_indices,
                       std::vector<double> frozen_config) {
@@ -189,6 +205,22 @@ NB_MODULE(_ompl_vamp, m) {
            nb::arg("points"), nb::arg("point_radius"))
       .def("remove_pointcloud", &OmplVampPlanner::remove_pointcloud)
       .def("has_pointcloud", &OmplVampPlanner::has_pointcloud)
+      .def(
+          "set_distance_grid",
+          [](OmplVampPlanner& planner, const Field& distances,
+             const std::array<float, 3>& origin,
+             const std::array<float, 3>& spacing) {
+            planner.set_distance_grid(
+                in_place(distances),
+                {distances.shape(0), distances.shape(1), distances.shape(2)},
+                origin, spacing);
+          },
+          // No implicit conversion: a converted copy would not be read in
+          // place, so a float64 or non-contiguous array raises TypeError.
+          nb::arg("distances").noconvert(), nb::arg("origin"),
+          nb::arg("spacing"))
+      .def("remove_distance_grid", &OmplVampPlanner::remove_distance_grid)
+      .def("has_distance_grid", &OmplVampPlanner::has_distance_grid)
       .def("add_sphere", &OmplVampPlanner::add_sphere, nb::arg("center"),
            nb::arg("radius"))
       .def("clear_environment", &OmplVampPlanner::clear_environment)
