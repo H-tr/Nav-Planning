@@ -1,9 +1,11 @@
 # Nav-Planning
 
-Motion planning for two mobile robots with a pan-tilt camera — the
+Motion planning for mobile robots that look around with a camera — the
 **Trossen LoCoBot** (iRobot Create 3 differential drive) and the
-**Clearpath Ridgeback** (holonomic) — with **VAMP SIMD collision
-checking**.  A sister library of
+**Clearpath Ridgeback** (holonomic), each with a pan-tilt camera, and
+**TortoBot**, the planar robot of
+[PHANTOM](https://github.com/H-tr/PHANTOM-Planner) — with **VAMP SIMD
+collision checking**.  A sister library of
 [Fetch-Planning](https://github.com/H-tr/Fetch-Planning) and
 [Autolife-Planning](https://github.com/H-tr/Autolife-Planning): same
 public API, same module layout, same build and release pipeline.
@@ -17,27 +19,32 @@ pip install nav-planning
 ## Motivation
 
 Fetch-Planning and Autolife-Planning wrap OMPL over a VAMP collision
-backend for one robot each.  Nav-Planning ports the same stack to two
+backend for one robot each.  Nav-Planning ports the same stack to
 navigation robots that look around with a camera:
 
-1. **Two robots, one API** — `create_planner("locobot_base")` or
-   `create_planner("ridgeback_whole_body")`; the low-level extension
-   takes the robot at construction, `OmplVampPlanner("locobot")` /
-   `OmplVampPlanner("ridgeback")`, and otherwise offers the calls of
-   Autolife-Planning's `OmplVampPlanner`.
+1. **Three robots, one API** — `create_planner("locobot_base")`,
+   `create_planner("ridgeback_whole_body")` or
+   `create_planner("tortobot_base")`; the low-level extension takes the
+   robot at construction, `OmplVampPlanner("locobot")` /
+   `OmplVampPlanner("ridgeback")` / `OmplVampPlanner("tortobot")`, and
+   otherwise offers the calls of Autolife-Planning's `OmplVampPlanner`.
 2. **Nonholonomic and holonomic bases** — the LoCoBot's base `(x, y, θ)`
    is planned in a Reeds-Shepp space (forward, reverse, no sliding), the
-   Ridgeback's in a plain SE(2) space (x, y and θ independent).  Motion
-   checks follow the space's own curves.
-3. **Kinodynamic planning** — `MotionPlanner.plan_kinodynamic` (FLASK,
+   Ridgeback's and TortoBot's in a plain SE(2) space (x, y and θ
+   independent).  Motion checks follow the space's own curves.
+3. **Point clouds or an ESDF** — the obstacles are a point cloud
+   (`add_pointcloud`) or a signed distance grid, an ESDF
+   (`set_distance_grid`, read in place, without a copy).
+4. **Kinodynamic planning** — `MotionPlanner.plan_kinodynamic` (FLASK,
    flatness-based kinodynamic RRT-Connect) returns time-parameterised
    trajectories within the joint and base velocity / acceleration limits:
    exactly nonholonomic for the LoCoBot, within the per-axis body-frame
    limits of the Ridgeback's controller.  See
    [docs/planning/kinodynamic.md](docs/planning/kinodynamic.md).
-4. **Collision models from the official descriptions** — both robots go
-   through the template pipeline: foam spheres + SRDF → cricket FK/CC
-   code → VAMP robot models.
+5. **Collision models from the official descriptions** — the LoCoBot
+   and the Ridgeback go through the template pipeline: foam spheres +
+   SRDF → cricket FK/CC code → VAMP robot models.  TortoBot's model is
+   one sphere, so it skips the foam step.
 
 ---
 
@@ -74,7 +81,7 @@ navigation robots that look around with a camera:
 
 ---
 
-## Robot layout (5 DOF each)
+## Robot layout
 
 | Index | LoCoBot            | Ridgeback          | Notes                                  |
 |------:|--------------------|--------------------|----------------------------------------|
@@ -84,12 +91,17 @@ navigation robots that look around with a camera:
 |   3   | `pan`              | `ptu_pan`          | ±90° (LoCoBot), ±168° (PTU-5)          |
 |   4   | `tilt`             | `ptu_tilt`         | −90°…+75° (LoCoBot), −90°…+30° (PTU-5) |
 
-Planning subgroups (`PLANNING_SUBGROUPS` in `nav_planning/locobot.py`
-and `nav_planning/ridgeback.py`):
+TortoBot has 4 DOF: the same three base joints, then `camera_pan`
+(±180°).
 
-- `locobot_base`, `ridgeback_base` — 3 DOF, the base; pan and tilt held
-- `locobot_whole_body`, `ridgeback_whole_body` — 5 DOF, base + camera
-  (`locobot` and `ridgeback` are aliases)
+Planning subgroups (`PLANNING_SUBGROUPS` in `nav_planning/locobot.py`,
+`nav_planning/ridgeback.py` and `nav_planning/tortobot.py`):
+
+- `locobot_base`, `ridgeback_base`, `tortobot_base` — 3 DOF, the base;
+  the camera joints held
+- `locobot_whole_body`, `ridgeback_whole_body` — 5 DOF, base + camera;
+  `tortobot_whole_body` — 4 DOF (`locobot`, `ridgeback` and `tortobot`
+  are aliases)
 
 The robots ([docs/robots.md](docs/robots.md)):
 
@@ -103,6 +115,12 @@ The robots ([docs/robots.md](docs/robots.md)):
   `flir_ptu_description`, base 1.006 m above the floor) and an Intel
   RealSense D435 (official `realsense2_description`).  309 collision
   spheres.
+- **TortoBot** — the planar robot of PHANTOM: a disc base of radius
+  0.32 m and a camera that pans on its own joint.  One collision sphere
+  of the disc's radius at the disc's centre (z = 0).  It is a model for
+  planar maps: give the map as an ESDF that does not change with height
+  (the same layer repeated, reaching at least 0.32 m above and below
+  z = 0); the sphere is then free exactly where the disc is free.
 
 ---
 
@@ -138,11 +156,13 @@ Autolife-Planning's:
 ```python
 from nav_planning._ompl_vamp import OmplVampPlanner
 
-planner = OmplVampPlanner("locobot")         # or "ridgeback"; full body, 5 DOF
+planner = OmplVampPlanner("locobot")         # or "ridgeback", "tortobot"; full body
 lower, upper = planner.default_joint_limits()
 planner.set_joint_limits(lower, upper)
 planner.set_subgroup([0, 1, 2], full_configuration)
 planner.add_pointcloud(points_float32_nx3, 0.0)
+# or an ESDF: (X, Y, Z) float32, C order, read in place (no copy)
+planner.set_distance_grid(distances, origin_xyz, spacing_xyz)
 result = planner.plan(start, goal, planner_name="rrtc", time_limit=1.0,
                       simplify=True, interpolate=False)
 result.solved, result.path                   # path: (N, dof) numpy array
@@ -159,7 +179,8 @@ kino.solved, kino.trajectory                 # trajectory: FlatTrajectory
 
 With the base active, consecutive waypoints of an uninterpolated path
 are joined by the base's own curve — a Reeds-Shepp curve for the
-LoCoBot, a straight line with shortest-arc heading for the Ridgeback —
+LoCoBot, a straight line with shortest-arc heading for the Ridgeback
+and TortoBot —
 not by a straight line in joint space; `interpolate=True` (or
 `interpolate_path`) samples those curves.
 
@@ -209,12 +230,13 @@ Nav-Planning/
 ├── nav_planning/               # Python package (mirrors fetch_planning/)
 │   ├── locobot.py              # LoCoBot layout, limits, subgroups, …
 │   ├── ridgeback.py            # Ridgeback layout, limits, subgroups, …
+│   ├── tortobot.py             # TortoBot layout, limits, subgroups, …
 │   ├── types/                  # SE3Pose, PlannerConfig, KinodynamicConfig, …
 │   ├── trajectory/             # TOPP-RA + kinodynamic trajectories
 │   ├── kinematics/             # Pinocchio forward kinematics (camera pose)
 │   ├── planning/               # MotionPlanner, create_planner
 │   ├── envs/                   # PyBullet scene wrapper
-│   └── resources/robot/        # locobot/, ridgeback/: URDFs, SRDFs, meshes
+│   └── resources/robot/        # locobot/, ridgeback/, tortobot/: URDFs, SRDFs, meshes
 │
 ├── ext/
 │   ├── ompl_vamp/              # nanobind OMPL↔VAMP bridge + FLASK

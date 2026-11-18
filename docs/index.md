@@ -1,8 +1,9 @@
 # Nav Planning
 
-A planning library for two mobile robots with a pan-tilt camera — the
-**Trossen LoCoBot** (differential drive) and the **Clearpath Ridgeback**
-(holonomic) — with motion planning (OMPL frontend, VAMP SIMD collision
+A planning library for mobile robots that look around with a camera —
+the **Trossen LoCoBot** (differential drive) and the **Clearpath
+Ridgeback** (holonomic), each with a pan-tilt camera, and **TortoBot**,
+the planar robot of [PHANTOM](https://github.com/H-tr/PHANTOM-Planner) — with motion planning (OMPL frontend, VAMP SIMD collision
 backend), kinodynamic planning (FLASK) and time-optimal trajectory
 generation, all behind a unified Python API.  A sister library of
 [Fetch-Planning](https://github.com/H-tr/Fetch-Planning) and
@@ -17,13 +18,13 @@ generation, all behind a unified Python API.  A sister library of
     For inference: **`numpy` and `pin`**.  No conda required, no ROS, no
     MoveIt.  `pip install nav-planning`.
 
--   :material-robot-mower-outline:{ .lg .middle } __Two robots, one API__
+-   :material-robot-mower-outline:{ .lg .middle } __Three robots, one API__
 
     ---
 
-    `create_planner("locobot_base")`, `create_planner("ridgeback_whole_body")`
-    — the same planners, trajectories and low-level calls for both
-    robots; only the name changes.
+    `create_planner("locobot_base")`, `create_planner("ridgeback_whole_body")`,
+    `create_planner("tortobot_base")` — the same planners, trajectories
+    and low-level calls for every robot; only the name changes.
 
 -   :material-speedometer:{ .lg .middle } __Millisecond plans__
 

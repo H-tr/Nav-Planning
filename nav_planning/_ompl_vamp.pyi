@@ -1,5 +1,5 @@
 """
-OMPL + VAMP C++ planning extension for the LoCoBot and the Ridgeback (5 DOF: planar base + camera pan and tilt).
+OMPL + VAMP C++ planning extension for the LoCoBot, the Ridgeback (5 DOF: planar base + camera pan and tilt) and TortoBot (4 DOF: planar base + camera pan).
 """
 
 from collections.abc import Sequence
@@ -182,7 +182,7 @@ class OmplVampPlanner:
     @overload
     def __init__(self, robot: str) -> None:
         """
-        Full-body planner (all five joints) of ``robot``: "locobot" or "ridgeback".
+        Full-body planner (all joints) of ``robot``: "locobot", "ridgeback" or "tortobot".
         """
 
     @overload
@@ -202,6 +202,35 @@ class OmplVampPlanner:
     ) -> None: ...
     def remove_pointcloud(self) -> bool: ...
     def has_pointcloud(self) -> bool: ...
+    def set_distance_grid(
+        self,
+        distances: Annotated[
+            NDArray[numpy.float32], dict(shape=(None, None, None), order="C")
+        ],
+        origin: Sequence[float],
+        spacing: Sequence[float],
+    ) -> None:
+        """
+        Set the scene ESDF, replacing any previous one.
+
+        ``distances`` holds signed distances (m, positive in free space) at
+        the points of a regular lattice: point ``(i, j, k)`` lies at
+        ``origin + (i, j, k) * spacing``.  A sphere is free where the
+        trilinear distance at its centre is at least its radius and it lies
+        wholly inside the lattice's box.  The planner reads the array in
+        place, without a copy, and keeps it alive: its values must be finite
+        and change only between queries.  Raises ``TypeError`` unless
+        ``distances`` is a float32 C-contiguous ``(X, Y, Z)`` array (no
+        implicit conversion, which would copy it), and ``ValueError`` if an
+        axis has fewer than 2 points or the spacing is not positive.
+        """
+
+    def remove_distance_grid(self) -> bool:
+        """Drop the ESDF.  Returns ``False`` if there was none."""
+
+    def has_distance_grid(self) -> bool:
+        """``True`` if an ESDF is set."""
+
     def add_sphere(self, center: Sequence[float], radius: float) -> None: ...
     def clear_environment(self) -> None: ...
     def plan(

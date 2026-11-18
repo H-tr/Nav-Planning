@@ -3,18 +3,18 @@
  *
  * ``OmplVampPlanner`` is the interface the Python extension exposes;
  * ``make_planner(robot)`` builds the ``Planner<Spec>`` of the named robot
- * ("locobot" or "ridgeback").  A planner starts on the full body (all
- * five joints); ``set_subgroup(active_indices, frozen_config)`` plans
- * over a subset with the other joints pinned.  The base joints
- * (indices 0, 1, 2) are either all active, leading the subgroup, or all
+ * ("locobot", "ridgeback" or "tortobot").  A planner starts on the full
+ * body (all of the robot's joints); ``set_subgroup(active_indices,
+ * frozen_config)`` plans over a subset with the other joints pinned.  The base
+ * joints (indices 0, 1, 2) are either all active, leading the subgroup, or all
  * frozen.
  *
  * State spaces (see validity.hpp):
  *
  *   * with the base — the robot's SE(2) space (Reeds-Shepp for the
  *     LoCoBot's differential drive, plain SE(2) for the holonomic
- *     Ridgeback), composed with a RealVectorStateSpace for the camera
- *     joints;
+ *     Ridgeback and TortoBot), composed with a RealVectorStateSpace for the
+ * camera joints;
  *   * without it — a RealVectorStateSpace.
  *
  * Every OMPL geometric planner runs on that space.
@@ -22,6 +22,9 @@
  * Joint limits are kept for the full body and bound every active state
  * space, so they survive ``set_subgroup``.  ``base_theta_joint`` is
  * periodic in the SE(2) spaces; its limits are not used there.
+ *
+ * The obstacles are a point cloud, an ESDF (``set_distance_grid``) and
+ * spheres; every one that is set applies.
  */
 
 #pragma once
@@ -121,6 +124,20 @@ class OmplVampPlanner {
                               float point_radius) = 0;
   virtual auto remove_pointcloud() -> bool = 0;
   virtual auto has_pointcloud() const -> bool = 0;
+  /// Set the scene ESDF, replacing any previous one: signed distances
+  /// (m, positive in free space) at ``size`` lattice points from
+  /// ``origin`` with ``spacing``, row-major with the z index contiguous.
+  /// The planner reads ``distances`` in place, without a copy: the values
+  /// must be finite and change only between queries; the shared pointer
+  /// keeps them alive.  A sphere is free where the trilinear distance at
+  /// its centre is at least its radius and it lies wholly inside the
+  /// lattice's box.
+  virtual void set_distance_grid(std::shared_ptr<const float> distances,
+                                 const std::array<std::size_t, 3>& size,
+                                 const std::array<float, 3>& origin,
+                                 const std::array<float, 3>& spacing) = 0;
+  virtual auto remove_distance_grid() -> bool = 0;
+  virtual auto has_distance_grid() const -> bool = 0;
   virtual void add_sphere(const std::array<float, 3>& center, float radius) = 0;
   virtual void clear_environment() = 0;
 
@@ -193,6 +210,30 @@ class Planner final : public OmplVampPlanner {
 
   auto has_pointcloud() const -> bool override {
     return !float_env_.pointclouds.empty();
+  }
+
+  void set_distance_grid(std::shared_ptr<const float> distances,
+                         const std::array<std::size_t, 3>& size,
+                         const std::array<float, 3>& origin,
+                         const std::array<float, 3>& spacing) override {
+    // No workspace boxes: the field's box is the lattice's box.
+    vamp::collision::DistanceGrid<float> grid(
+        origin[0], origin[1], origin[2], spacing[0], spacing[1], spacing[2],
+        size[0], size[1], size[2], {std::move(distances)});
+    float_env_.distance_grids.clear();
+    float_env_.distance_grids.emplace_back(std::move(grid));
+    sync_env();
+  }
+
+  auto remove_distance_grid() -> bool override {
+    if (float_env_.distance_grids.empty()) return false;
+    float_env_.distance_grids.clear();
+    sync_env();
+    return true;
+  }
+
+  auto has_distance_grid() const -> bool override {
+    return !float_env_.distance_grids.empty();
   }
 
   void add_sphere(const std::array<float, 3>& center, float radius) override {
@@ -654,13 +695,14 @@ class Planner final : public OmplVampPlanner {
   }
 };
 
-/// The planner of ``robot``: "locobot" or "ridgeback".
+/// The planner of ``robot``: "locobot", "ridgeback" or "tortobot".
 inline auto make_planner(const std::string& robot)
     -> std::unique_ptr<OmplVampPlanner> {
   if (robot == "locobot") return std::make_unique<Planner<Locobot>>();
   if (robot == "ridgeback") return std::make_unique<Planner<Ridgeback>>();
+  if (robot == "tortobot") return std::make_unique<Planner<Tortobot>>();
   throw std::invalid_argument("Unknown robot '" + robot +
-                              "': use 'locobot' or 'ridgeback'.");
+                              "': use 'locobot', 'ridgeback' or 'tortobot'.");
 }
 
 }  // namespace nav_planning

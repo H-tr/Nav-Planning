@@ -5,16 +5,17 @@ collision checking.  The entire planning pipeline runs in C++ via
 the ``_ompl_vamp`` extension — Python only crosses the boundary
 once per ``plan()`` call.
 
-Two robots share the package: the LoCoBot (``locobot_*`` subgroups) and
-the Ridgeback (``ridgeback_*``).  Each has a 5-DOF configuration — the
-planar base ``(x, y, theta)`` followed by the camera pan and tilt — and
+Three robots share the package: the LoCoBot (``locobot_*`` subgroups),
+the Ridgeback (``ridgeback_*``) and TortoBot (``tortobot_*``).  Each
+configuration is the planar base ``(x, y, theta)`` followed by the camera
+joints — pan and tilt (5 DOF), or pan alone for TortoBot (4 DOF) — with
 two subgroups: the base alone and the whole body.  Frozen joints are
 expanded to the full configuration before every collision check.
 
 Subgroups with the base plan the base in SE(2): a Reeds-Shepp space for
 the LoCoBot's differential drive (forward, reverse and turns no tighter
 than its turning radius), a plain SE(2) space for the holonomic
-Ridgeback.  Every OMPL geometric planner runs on that space.
+Ridgeback and TortoBot.  Every OMPL geometric planner runs on that space.
 
 :meth:`MotionPlanner.plan_kinodynamic` is the kinodynamic alternative:
 FLASK (flatness-based kinodynamic RRT-Connect) returns a
@@ -40,9 +41,9 @@ from nav_planning.types import (
 
 def _robot_module(robot_name: str) -> ModuleType:
     """The robot constants module that defines ``robot_name``."""
-    from nav_planning import locobot, ridgeback
+    from nav_planning import locobot, ridgeback, tortobot
 
-    for module in (locobot, ridgeback):
+    for module in (locobot, ridgeback, tortobot):
         if robot_name == module.ROBOT_NAME or robot_name in module.PLANNING_SUBGROUPS:
             return module
     raise ValueError(
@@ -58,7 +59,7 @@ class MotionPlanner:
 
     For subgroup planners the helper methods :meth:`extract_config`,
     :meth:`embed_config`, and :meth:`embed_path` convert between the
-    reduced DOF space used by the planner and the full 5-DOF body
+    reduced DOF space used by the planner and the full body
     configuration.
     """
 
@@ -78,9 +79,9 @@ class MotionPlanner:
         self._robot = _robot_module(robot_name)
         self._robot_name = robot_name
 
-        # Frozen 5-DOF joint values for any joint not controlled by this
+        # Frozen full-body joint values for any joint not controlled by this
         # planner.  Defaults to HOME_JOINTS, but the caller can pass any
-        # 5-DOF array — e.g. the live config from the env — so the
+        # full-body array — e.g. the live config from the env — so the
         # inactive joints are pinned wherever they currently are.
         if base_config is None:
             base_config = self._robot.HOME_JOINTS
@@ -108,7 +109,7 @@ class MotionPlanner:
     def _resolve_subgroup(self, robot_name: str) -> list[int]:
         """Translate a subgroup name into active joint indices.
 
-        The robot name itself (``"locobot"``, ``"ridgeback"``) is an alias
+        The robot name itself (``"locobot"``, ``"ridgeback"``, ``"tortobot"``) is an alias
         for its whole body.
         """
         if robot_name == self._robot.ROBOT_NAME:
@@ -242,6 +243,43 @@ class MotionPlanner:
     def has_pointcloud(self) -> bool:
         """``True`` if a pointcloud is currently registered."""
         return self._planner.has_pointcloud()
+
+    # ── ESDF environment ──────────────────────────────────────────────
+
+    def set_distance_grid(
+        self,
+        distances: np.ndarray,
+        origin: np.ndarray,
+        spacing: float | np.ndarray,
+    ) -> None:
+        """Set the scene ESDF, replacing any previous one.
+
+        A sphere is free where the trilinear distance at its centre is at
+        least its radius and it lies wholly inside the lattice's box.  The
+        planner reads a float32 C-order array in place, without a copy, and
+        keeps it alive: its values must be finite and change only between
+        queries.
+
+        Args:
+            distances: ``(X, Y, Z)`` signed distances (m, positive in free
+                space) at the points of a regular lattice.
+            origin: World position of lattice point ``(0, 0, 0)``.
+            spacing: Lattice spacing (m), one value or one per axis.
+        """
+        self._planner.set_distance_grid(
+            np.ascontiguousarray(distances, dtype=np.float32),
+            np.asarray(origin, dtype=np.float32).tolist(),
+            np.broadcast_to(np.asarray(spacing, dtype=np.float32), 3).tolist(),
+        )
+
+    def remove_distance_grid(self) -> bool:
+        """Drop the ESDF.  Returns ``False`` if there was none."""
+        return self._planner.remove_distance_grid()
+
+    @property
+    def has_distance_grid(self) -> bool:
+        """``True`` if an ESDF is set."""
+        return self._planner.has_distance_grid()
 
     # ── Point cloud filtering ────────────────────────────────────────
 
@@ -630,10 +668,10 @@ class MotionPlanner:
 
 def available_robots() -> list[str]:
     """Return all available robot names for planning."""
-    from nav_planning import locobot, ridgeback
+    from nav_planning import locobot, ridgeback, tortobot
 
     names = []
-    for module in (locobot, ridgeback):
+    for module in (locobot, ridgeback, tortobot):
         names += [module.ROBOT_NAME] + sorted(module.PLANNING_SUBGROUPS)
     return names
 
@@ -649,13 +687,15 @@ def create_planner(
     Args:
         robot_name: Robot or subgroup name: ``"locobot_base"``,
             ``"locobot_whole_body"``, ``"ridgeback_base"``,
-            ``"ridgeback_whole_body"``; ``"locobot"`` and ``"ridgeback"``
-            are aliases for the whole bodies.  See :func:`available_robots`.
+            ``"ridgeback_whole_body"``, ``"tortobot_base"``,
+            ``"tortobot_whole_body"``; ``"locobot"``, ``"ridgeback"`` and
+            ``"tortobot"`` are aliases for the whole bodies.  See
+            :func:`available_robots`.
         config: Planner configuration (uses defaults if None).
         pointcloud: ``(N, 3)`` obstacle point cloud (optional).
-        base_config: 5-DOF values to inject for joints not controlled by
+        base_config: Full-body values to inject for joints not controlled by
             this planner (i.e. the camera joints of a base subgroup).
-            Defaults to the robot's ``HOME_JOINTS``.  Supply any 5-DOF
+            Defaults to the robot's ``HOME_JOINTS``.  Supply any full-body
             array — for example the live configuration read from your
             env — to pin the rest of the body wherever it currently is.
 

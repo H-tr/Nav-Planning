@@ -13,6 +13,9 @@ SUBGROUPS = {
     "ridgeback": 5,
     "ridgeback_base": 3,
     "ridgeback_whole_body": 5,
+    "tortobot": 4,
+    "tortobot_base": 3,
+    "tortobot_whole_body": 4,
 }
 
 

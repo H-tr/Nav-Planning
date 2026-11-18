@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # Generate FK/collision-checking C++ code for vamp using cricket.
-# Generates four VAMP robot models and installs them in
+# Generates five VAMP robot models and installs them in
 # ext/ompl_vamp/include/vamp/robots/ (NOT inside the vamp submodule):
 #
 #   - LocobotWholeBody    (5 DOF)  from locobot_spherized.urdf + locobot.srdf
 #   - LocobotBase         (3 DOF)  from locobot_base.urdf + locobot_base.srdf
 #   - RidgebackWholeBody  (5 DOF)  from ridgeback_spherized.urdf + ridgeback.srdf
 #   - RidgebackBase       (3 DOF)  from ridgeback_base.urdf + ridgeback_base.srdf
+#   - Tortobot            (4 DOF)  from tortobot_spherized.urdf + tortobot.srdf
 #
 # The base models hold the links that do not move with the camera, cut
 # from the spherized URDF (scripts/spherize_robot.sh).  No planner uses
-# them.
+# them.  TortoBot's spherized URDF is written by hand: its collision
+# model is one sphere, so it needs no foam step.
+#
+# Usage: generate_fk.sh [MODEL ...]  (default: all five models;
+# MODEL is a cricket config name, e.g. "tortobot").
 #
 # cricket's CppAD codegen is not bit-stable across runs: regenerating
-# can move spheres by ~1e-6 m.  Regenerate only when a URDF or SRDF
-# actually changes.
+# can move spheres by ~1e-6 m.  Regenerate only the models whose URDF or
+# SRDF actually changes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -24,6 +29,12 @@ CRICKET="$ROOT/third_party/cricket"
 RESOURCES="$ROOT/nav_planning/resources/robot"
 CRICKET_CONFIGS="$SCRIPT_DIR/cricket_configs"
 FK_DEST="$ROOT/ext/ompl_vamp/include/vamp/robots"
+
+if [ "$#" -gt 0 ]; then
+    MODELS=("$@")
+else
+    MODELS=(locobot_whole_body locobot_base ridgeback_whole_body ridgeback_base tortobot)
+fi
 
 # 1. Distribute robot descriptions and cricket configs into the cricket
 #    submodule (kept out of submodule git tracking on purpose — the
@@ -36,12 +47,15 @@ for ROBOT in locobot ridgeback; do
     cp "$RESOURCES/$ROBOT/${ROBOT}_base.urdf"      "$CRICKET/resources/$ROBOT/"
     cp "$RESOURCES/$ROBOT/${ROBOT}_base.srdf"      "$CRICKET/resources/$ROBOT/"
 done
+mkdir -p "$CRICKET/resources/tortobot"
+cp "$RESOURCES/tortobot/tortobot_spherized.urdf" "$CRICKET/resources/tortobot/"
+cp "$RESOURCES/tortobot/tortobot.srdf"           "$CRICKET/resources/tortobot/"
 cp "$CRICKET_CONFIGS/"*.json "$CRICKET/resources/"
 
 # 2. Run cricket FK code generation
 echo "[2/3] Generating FK code..."
 mkdir -p "$FK_DEST"
-for MODEL in locobot_whole_body locobot_base ridgeback_whole_body ridgeback_base; do
+for MODEL in "${MODELS[@]}"; do
     echo "  generating FK for $MODEL..."
     (cd "$CRICKET" && "$CRICKET/build/fkcc_gen" "resources/${MODEL}.json")
     cp "$CRICKET/${MODEL}_fk.hh" "$FK_DEST/${MODEL}.hh"

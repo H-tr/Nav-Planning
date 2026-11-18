@@ -4,8 +4,8 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "nav-planning"
-version = "0.1.0"
-description = "Motion planning for the LoCoBot and the Ridgeback with a pan-tilt camera (OMPL + VAMP)"
+version = "0.2.0b1"
+description = "Motion planning for the LoCoBot, the Ridgeback and TortoBot with a camera (OMPL + VAMP)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

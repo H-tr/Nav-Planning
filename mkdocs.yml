@@ -1,6 +1,6 @@
 site_name: Nav Planning
 site_url: https://h-tr.github.io/Nav-Planning/
-site_description: Planning library for the LoCoBot and the Ridgeback with a pan-tilt camera — geometric and kinodynamic motion planning and time parameterization.
+site_description: Planning library for the LoCoBot, the Ridgeback and TortoBot with a camera — geometric and kinodynamic motion planning and time parameterization.
 repo_url: https://github.com/H-tr/Nav-Planning
 repo_name: H-tr/Nav-Planning
 

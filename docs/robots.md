@@ -1,9 +1,10 @@
 # Robots
 
-Both robots share one layout: three virtual planar joints
+Every robot shares one layout: three virtual planar joints
 `base_x_joint`, `base_y_joint`, `base_theta_joint` (prismatic x,
 prismatic y, revolute z, from a `world` link to the robot's root), then
-the camera pan and tilt.  Every other joint of the official descriptions
+the camera joints: pan and tilt (LoCoBot, Ridgeback) or pan alone
+(TortoBot).  Every other joint of the official descriptions
 (wheels, wheel drops, rocker) is fixed at zero for planning.
 
 ## LoCoBot
@@ -75,6 +76,40 @@ them to the accelerations programmed on your PTU.
 | yaw rate | 2.0 rad/s | `control.yaml` |
 | yaw acceleration | 1.0 rad/s² | `control.yaml` |
 
+## TortoBot
+
+The planar robot of [PHANTOM](https://github.com/H-tr/PHANTOM-Planner)
+(`phantom/robot/tortobot.urdf`): a disc base of radius 0.32 m whose x,
+y and heading move on their own (a plain SE(2) space, as the
+Ridgeback), and a camera on its own pan joint, 0.08 m above the base
+origin.  The camera has no collision geometry: it lies inside the
+disc.
+
+| Joint | Range | Velocity | Acceleration |
+|---|---|---|---|
+| `camera_pan` | ±180° | 3.0 rad/s | 300 rad/s² |
+
+| Base (per axis) | Limit |
+|---|---|
+| speed x, y | 1.0 m/s |
+| acceleration x, y | 0.5 m/s² |
+| yaw rate | 1.0 rad/s |
+| yaw acceleration | 2.0 rad/s² |
+
+The limits are PHANTOM's simulated actuator limits, which PHANTOM gives
+for each world axis; FLASK takes them as its limits for each body axis.
+
+The collision model is one sphere of the disc's radius (0.32 m) at the
+disc's centre, at z = 0 (`tortobot_spherized.urdf`, written by hand: no
+foam step).  TortoBot is a model for planar maps: give the map as an
+ESDF whose value does not change with height, for example one planar
+layer repeated three times at z = −1, 0 and 1 m.  The trilinear value
+at the sphere's centre is then the bilinear value of the planar layer,
+so the sphere is free exactly where the disc is free (the test
+`tests/test_tortobot.py::test_planar_map_is_exact`).  The lattice must
+reach at least 0.32 m above and below z = 0, because a sphere must lie
+wholly inside the lattice's box.
+
 ## Collision models
 
 `scripts/build_robot.sh` expands the official xacro, puts the robot on
@@ -90,6 +125,7 @@ models.
 | `LocobotBase` | 228 | no planner |
 | `RidgebackWholeBody` | 309 | every Ridgeback check |
 | `RidgebackBase` | 214 | no planner |
+| `Tortobot` | 1 | every TortoBot check |
 
 Coverage (`scripts/sphere_coverage.py`: 20k surface samples per link
 plus its vertices, tested against the link's spheres):

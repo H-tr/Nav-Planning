@@ -172,6 +172,33 @@ own curve, not by a straight line in joint space:
 [`interpolate_path`](../api/planning.md#nav_planning.planning.motion_planner.MotionPlanner.interpolate_path)
 samples it later.
 
+## ESDF environment
+
+A mapped scene can also come as a signed distance grid, an ESDF,
+instead of a point cloud.  VAMP reads it by trilinear interpolation: a
+sphere is free where the distance at its centre is at least its radius
+and it lies wholly inside the grid's box.  The planner reads a float32
+C-order array in place, without a copy, and keeps it alive, so its
+values must be finite and change only between queries.  Any other array
+type raises `TypeError` (an implicit conversion would copy it).
+
+```python
+planner.set_distance_grid(
+    distances,                 # (X, Y, Z) signed distances, m, positive in free space
+    origin=grid_origin,        # world position of lattice point (0, 0, 0)
+    spacing=0.05,              # m, one value or one per axis
+)
+planner.remove_distance_grid()
+```
+
+A planner holds at most one grid and one point cloud; both apply when
+both are set.  The ESDF check comes from the H-tr/vamp branch
+`feat/distance-grid` (`vamp::collision::DistanceGrid`), the same check
+as Autolife-Planning 1.3.0b1.
+
+For TortoBot, a planar robot, give a planar map as an ESDF whose value
+does not change with height ([Robots](../robots.md#tortobot)).
+
 ## Standalone collision checking
 
 ```python

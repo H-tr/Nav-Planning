@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!-- TortoBot, the planar robot of PHANTOM (github.com/H-tr/PHANTOM-Planner,
+     phantom/robot/tortobot.urdf): a disc base of radius 0.32 m whose x, y and
+     heading move on their own, and a camera that pans on its own joint.
+     PHANTOM's planar joint is written here as the package's three virtual
+     base joints. The x and y ranges are placeholders: callers set the
+     workspace with set_joint_limits. -->
+<robot name="tortobot">
+  <link name="world"/>
+  <joint name="base_x_joint" type="prismatic">
+    <parent link="world"/>
+    <child link="base_x_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-10.0" upper="10.0" effort="100" velocity="1.0"/>
+  </joint>
+  <link name="base_x_link"/>
+  <joint name="base_y_joint" type="prismatic">
+    <parent link="base_x_link"/>
+    <child link="base_y_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-10.0" upper="10.0" effort="100" velocity="1.0"/>
+  </joint>
+  <link name="base_y_link"/>
+  <joint name="base_theta_joint" type="revolute">
+    <parent link="base_y_link"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="100" velocity="1.0"/>
+  </joint>
+  <link name="base_link">
+    <!-- One sphere of the disc's radius at the disc's centre. On a planar map,
+         given as an ESDF that does not change with height, the sphere is free
+         exactly where PHANTOM's disc is free. No foam step: the model is
+         already one sphere. -->
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.32"/>
+      </geometry>
+    </collision>
+    <visual>
+      <geometry>
+        <cylinder radius="0.32" length="0.10"/>
+      </geometry>
+      <material name="body_blue">
+        <color rgba="0.15 0.45 0.75 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- The camera pans on its own joint; it lies inside the base's footprint
+       and has no collision geometry. -->
+  <joint name="camera_pan" type="revolute">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0 0 0.08" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="1" velocity="3.0"/>
+  </joint>
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0.04 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.06 0.04"/>
+      </geometry>
+      <material name="camera_black">
+        <color rgba="0.1 0.1 0.1 1"/>
+      </material>
+    </visual>
+  </link>
+</robot>
